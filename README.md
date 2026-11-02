@@ -55,6 +55,73 @@ La aplicación cuenta con dos funciones principales:
 
 **Pendiente:** revisión de reglas de ESLint y desarrollo de pruebas automatizadas propias.
 
+## Instalación y ejecución local
+
+### Requisitos
+
+- Node.js 24 y npm 11.
+- Git.
+- Una cuenta de Canva con acceso al Developer Portal.
+- Una aplicación creada en el Developer Portal para vincular este proyecto.
+
+### 1. Descargar el proyecto
+
+```bash
+git clone https://github.com/blas-meylin/lettra-colors-canva-app.git
+cd lettra-colors-canva-app
+```
+
+Si el repositorio es privado, se necesita autorización para descargarlo.
+
+### 2. Instalar las dependencias
+
+```bash
+npm ci
+```
+
+### 3. Vincular el proyecto con Canva
+
+Iniciar sesión:
+
+```bash
+npx @canva/cli login
+```
+
+Vincular la carpeta con una aplicación a la que se tenga acceso:
+
+```bash
+npx @canva/cli apps link
+```
+
+Seguir las indicaciones de la terminal. La vinculación configura el archivo `.env` local.
+
+El archivo `.env.template` contiene los nombres de las variables de configuración. No es necesario completar todas las variables para todos los proyectos.
+
+### 4. Iniciar el entorno de desarrollo
+
+```bash
+npm start
+```
+
+Abrir el enlace de vista previa de Canva que aparece en la terminal. Mantener la terminal abierta mientras se utiliza la aplicación.
+
+Para detener el servidor, presionar `Ctrl + C`.
+
+### 5. Probar las funciones
+
+Utilizar una copia de un diseño compatible con la estructura de las plantillas de Lettra. Probar los cambios de colores y el reemplazo de textos sobre esa copia.
+
+Descargar el código no proporciona acceso a las plantillas comerciales de Lettra ni publica la aplicación en Canva.
+
+## Comandos de revisión
+
+```bash
+npm run lint:types
+npm run lint
+npm run build
+```
+
+Estos comandos permiten revisar los tipos de TypeScript, comprobar las reglas de código y compilar el proyecto. No sustituyen las pruebas de funcionamiento dentro de Canva.
 
 ## Capturas de pantalla
 
