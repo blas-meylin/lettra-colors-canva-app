@@ -2,6 +2,16 @@
 
 Aplicación para Canva que automatiza la personalización de portadas, contraportadas y lomos de cuadernos escolares.
 
+## Estado del proyecto
+
+Versión 1.0 funcional de uso privado en Canva. Aún no está publicada en su catálogo de aplicaciones.
+
+## Contexto de uso
+
+Desarrollé Lettra Colors para facilitar la personalización de las plantillas escolares de mi emprendimiento, Lettra.
+
+La herramienta trabaja con la estructura y los elementos de los diseños utilizados en el proyecto. Su compatibilidad con otras plantillas requiere revisión y adaptación.
+
 ## Problema que resuelve
 
 La personalización manual de cuadernos escolares en Canva requería mucho tiempo, especialmente al modificar colores, portadas, contraportadas, nombres de estudiantes y lomos.
