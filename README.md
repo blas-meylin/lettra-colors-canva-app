@@ -1,10 +1,10 @@
 # Lettra Colors 1.0
 
-Aplicación para Canva que automatiza la personalización de portadas, contraportadas y lomos de cuadernos escolares.
+Herramienta para Canva que automatiza la personalización de portadas, contraportadas y lomos de cuadernos escolares.
 
 ## Estado del proyecto
 
-Versión 1.0 funcional de uso privado en Canva. Aún no está publicada en su catálogo de aplicaciones.
+Versión 1.0 funcional utilizada en un entorno de desarrollo de Canva. Aún no está publicada en su catálogo de aplicaciones.
 
 ## Contexto de uso
 
@@ -14,44 +14,46 @@ La herramienta trabaja con la estructura y los elementos de los diseños utiliza
 
 ## Problema que resuelve
 
-La personalización manual de cuadernos escolares en Canva requería mucho tiempo, especialmente al modificar colores, portadas, contraportadas, nombres de estudiantes y lomos.
+La personalización manual de cuadernos escolares requiere repetir cambios de colores, nombres, apellidos y grado en distintas páginas.
 
-Lettra Colors nació para automatizar estas tareas repetitivas, reducir el tiempo de trabajo y facilitar la personalización de múltiples diseños desde una sola aplicación.
+Lettra Colors reúne estas tareas en una interfaz dentro de Canva para facilitar la preparación de los diseños.
 
-## ¿Cómo funciona?
+## Cómo funciona
 
-Lettra Colors es una aplicación integrada en el editor de Canva que permite personalizar diseños de cuadernos escolares de manera más rápida.
-
-La aplicación cuenta con dos funciones principales:
+La herramienta cuenta con dos funciones principales.
 
 ### Personalización de colores
 
 - Permite elegir entre 21 paletas de colores.
 - Cambia el fondo de la portada y contraportada.
-- Actualiza las franjas laterales y los colores de las ilustraciones SVG.
+- Actualiza las franjas laterales y los colores de las ilustraciones SVG compatibles.
 - Modifica el lomo correspondiente, conservando el borde blanco de sus letras.
 
 ### Personalización de datos
 
 - Permite ingresar nombres, apellidos y grado del estudiante.
-- Busca los textos originales en las páginas del diseño.
-- Reemplaza las coincidencias automáticamente.
-- Evita tener que editar cada página manualmente.
+- Busca cuadros de texto con las etiquetas originales de la plantilla.
+- Reemplaza las coincidencias en las páginas del diseño.
+- Permite dejar vacíos los campos que no se quieren modificar.
+
+El reemplazo busca las etiquetas NOMBRES, APELLIDOS y GRADO, además del ejemplo de grado 3° A. Si estos textos ya fueron reemplazados, la herramienta no vuelve a encontrarlos mediante esas etiquetas.
 
 ## Tecnologías utilizadas
 
-- **TypeScript:** desarrollo de la lógica para automatizar la personalización de los diseños.
-- **React:** creación de la interfaz interactiva de Lettra Colors.
-- **Canva Apps SDK:** integración de la aplicación con el editor de Canva.
+- **TypeScript:** lógica de personalización de los diseños.
+- **React:** interfaz de la herramienta.
+- **Canva Apps SDK:** integración con el editor de Canva.
 - **SVG:** procesamiento y recoloración de ilustraciones.
-- **Node.js y npm:** ejecución y gestión del proyecto durante el desarrollo.
-- **Visual Studio Code:** editor utilizado para desarrollar la aplicación.
+- **Node.js y npm:** entorno de desarrollo y gestión de dependencias.
+- **Visual Studio Code:** editor utilizado durante el desarrollo.
 
 ## Validación técnica
 
-- Revisión de tipos de TypeScript completada sin errores.
-- Compilación de la aplicación realizada correctamente con Canva CLI.
-- Versión funcional privada: Lettra Colors 1.0.
+Durante el desarrollo de la versión 1.0 se realizaron las siguientes comprobaciones:
+
+- Revisión de tipos de TypeScript sin errores.
+- Compilación con Canva CLI.
+- Pruebas manuales de personalización dentro de Canva.
 
 **Pendiente:** revisión de reglas de ESLint y desarrollo de pruebas automatizadas propias.
 
@@ -97,13 +99,15 @@ Seguir las indicaciones de la terminal. La vinculación configura el archivo `.e
 
 El archivo `.env.template` contiene los nombres de las variables de configuración. No es necesario completar todas las variables para todos los proyectos.
 
+El archivo `.env` debe permanecer fuera del repositorio.
+
 ### 4. Iniciar el entorno de desarrollo
 
 ```bash
 npm start
 ```
 
-Abrir el enlace de vista previa de Canva que aparece en la terminal. Mantener la terminal abierta mientras se utiliza la aplicación.
+Abrir el enlace de vista previa de Canva que aparece en la terminal. Mantener la terminal abierta mientras se utiliza la herramienta.
 
 Para detener el servidor, presionar `Ctrl + C`.
 
@@ -115,27 +119,56 @@ Descargar el código no proporciona acceso a las plantillas comerciales de Lettr
 
 ## Comandos de revisión
 
+Revisar los tipos de TypeScript:
+
 ```bash
 npm run lint:types
+```
+
+Comprobar las reglas de código:
+
+```bash
 npm run lint
+```
+
+Compilar el proyecto:
+
+```bash
 npm run build
 ```
 
-Estos comandos permiten revisar los tipos de TypeScript, comprobar las reglas de código y compilar el proyecto. No sustituyen las pruebas de funcionamiento dentro de Canva.
+Estos comandos no sustituyen las pruebas de funcionamiento dentro de Canva.
 
 ## Capturas de pantalla
 
 ### 1. Aplicación integrada en Canva
+
 ![Aplicación Lettra Colors en Canva](capturas/01_app_en_canva.png)
 
 ### 2. Interfaz de Lettra Colors
+
 ![Interfaz de Lettra Colors](capturas/02_interfaz_lettra_colors.png)
 
 ### 3. Portada personalizada
-![Portada amarilla con datos actualizados](capturas/03_portada_actualizada.png)
+
+![Portada amarilla con datos ficticios](capturas/03_portada_actualizada.png)
 
 ### 4. Contraportada personalizada
-![Contraportada con datos actualizados](capturas/04_contraportada_actualizada.png)
+
+![Contraportada con datos ficticios](capturas/04_contraportada_actualizada.png)
 
 ### 5. Lomos actualizados
+
 ![Lomos de cuadernos con diferentes colores](capturas/05_lomos_actualizados.png)
+
+## Recursos visuales
+
+Las ilustraciones y los fondos utilizados en las capturas se generaron con herramientas de inteligencia artificial. Los fondos se convirtieron posteriormente a SVG para permitir su recoloración.
+
+Los nombres y demás datos mostrados son ficticios y se utilizan únicamente para demostrar el funcionamiento de la herramienta.
+
+## Créditos y licencia
+
+Proyecto desarrollado para Lettra a partir del starter kit de Canva Apps SDK.
+
+La licencia de los componentes de Canva se conserva en el archivo [LICENSE.md](LICENSE.md).
