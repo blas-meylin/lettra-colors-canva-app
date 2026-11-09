@@ -143,23 +143,33 @@ Estos comandos no sustituyen las pruebas de funcionamiento dentro de Canva.
 
 ### 1. Aplicación integrada en Canva
 
-![Aplicación Lettra Colors en Canva](capturas/01_app_en_canva.png)
+<p align="center">
+  <img src="capturas/01_app_en_canva.png" width="380" alt="Aplicación Lettra Colors en Canva" />
+</p>
 
 ### 2. Interfaz de Lettra Colors
 
-![Interfaz de Lettra Colors](capturas/02_interfaz_lettra_colors.png)
+<p align="center">
+  <img src="capturas/02_interfaz_lettra_colors.png" width="380" alt="Interfaz de Lettra Colors" />
+</p>
 
 ### 3. Portada personalizada
 
-![Portada amarilla con datos ficticios](capturas/03_portada_actualizada.png)
+<p align="center">
+  <img src="capturas/03_portada_actualizada.png" width="380" alt="Portada amarilla con datos ficticios" />
+</p>
 
 ### 4. Contraportada personalizada
 
-![Contraportada con datos ficticios](capturas/04_contraportada_actualizada.png)
+<p align="center">
+  <img src="capturas/04_contraportada_actualizada.png" width="380" alt="Contraportada con datos ficticios" />
+</p>
 
 ### 5. Lomos actualizados
 
-![Lomos de cuadernos con diferentes colores](capturas/05_lomos_actualizados.png)
+<p align="center">
+  <img src="capturas/05_lomos_actualizados.png" width="380" alt="Lomos de cuadernos con diferentes colores" />
+</p>
 
 ## Recursos visuales
 
