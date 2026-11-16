@@ -36,7 +36,6 @@
     "removeComments": true,
     "preserveConstEnums": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "./",
     "paths": {
       "assets": ["./examples/assets"],
       "styles": ["./styles"]

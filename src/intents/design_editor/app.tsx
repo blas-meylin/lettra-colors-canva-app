@@ -4,18 +4,217 @@
 
 // Recursos faltantes: detección y recuperación automática, sin controles de diagnóstico.
 
-import { Button, Rows, Select, Text, TextInput } from "@canva/app-ui-kit";
+import {
+  Button,
+  FormField,
+  Rows,
+  Select,
+  Text,
+  TextInput,
+  Title,
+} from "@canva/app-ui-kit";
 
 import { getTemporaryUrl, upload } from "@canva/asset";
 
 import { openDesign } from "@canva/design";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  createIntl,
+  defineMessage,
+  useIntl,
+  type MessageDescriptor,
+} from "react-intl";
 
+// Spanish preview for local development only. Production continues to use
+// Canva's locale and translation catalog, with English source messages.
+const SPANISH_PREVIEW_MESSAGES: Record<string, string> =
+  process.env.NODE_ENV === "development"
+    ? {
+        "Could not retrieve the Canva asset.":
+          "No se pudo consultar el recurso de Canva.",
+        "Could not read the SVG.": "No se pudo leer el SVG.",
+        "The file is not an SVG.": "No es un archivo SVG.",
+        "The SVG is invalid.": "El SVG no es válido.",
+        "Canva does not allow changing this page's background color directly.":
+          "Canva no permite modificar directamente el color de esta página.",
+        "This page does not support editing its native background.":
+          "Esta página no permite cambiar su fondo nativo.",
+        "Could not identify the spine section. No rectangles were changed.":
+          "No pude reconocer el bloque de lomos. Ningún rectángulo fue modificado.",
+        "This page does not match a cover with a spine.":
+          "Esta página no corresponde a una portada con lomo.",
+        "The matching spine page does not exist.":
+          "No existe la página del lomo correspondiente.",
+        "The spine page is locked or cannot be edited.":
+          "La página de lomos está bloqueada o no es editable.",
+        "Could not reliably identify the columns on this spine page.":
+          "No reconozco con seguridad las columnas de esta página de lomos.",
+        "The spine rectangle is locked or its color cannot be changed.":
+          "El rectángulo del lomo está bloqueado o no permite cambiar color.",
+        "The rectangle was updated, but its spine text could not be reliably identified.":
+          "Rectángulo actualizado, pero no pude identificar con seguridad el texto de ese lomo.",
+        "The rectangle was updated, but the spine text is empty.":
+          "Rectángulo actualizado, pero el texto del lomo está vacío.",
+        "The rectangle was updated, but Canva could not recolor its text: {v0}":
+          "Rectángulo actualizado; Canva no permitió recolorear el texto: {v0}",
+        "No palette definitions available.": "No hay paletas disponibles.",
+        "identifying the cover pair": "identificar portada y contraportada",
+        "Finding the current page and its matching cover...":
+          "Buscando la página abierta y su pareja...",
+        "This page is not supported.": "Esta página no es compatible.",
+        "Canva did not provide the page ID.":
+          "Canva no proporcionó el ID de la página.",
+        "Could not find the current page.":
+          "No se pudo ubicar la página abierta.",
+        "This page has no back cover on the next page.":
+          "Esta página no tiene contraportada consecutiva.",
+        "Could not identify the cover pair.":
+          "No se pudo identificar la pareja.",
+        "preparing decorations and the solid background":
+          "preparar figuritas y fondo plano",
+        "Preparing {v0} for pages {v1} and {v2}...":
+          "Preparando {v0} para páginas {v1} y {v2}...",
+        "opening the design for editing": "abrir sesión para editar",
+        "Applying {v0} to both pages...": "Aplicando {v0} a las dos páginas...",
+        "Page {v0} is not supported.": "Página {v0} incompatible.",
+        "Page {v0} is locked or not supported.":
+          "Página {v0} bloqueada o incompatible.",
+        "updating the background on page {v0}": "fondo de la página {v0}",
+        "Page {v0}: removed {v1} previous Lettra Colors PNG backgrounds.":
+          "Página {v0}: se retiraron {v1} fondos PNG anteriores de Lettra Colors.",
+        "Background on page {v0}: {v1}": "Fondo página {v0}: {v1}",
+        "updating the strip on page {v0}": "franja de la página {v0}",
+        "Page {v0}: no matching strip found.":
+          "Página {v0}: tira no encontrada.",
+        "Back cover text on page {v0}: {v1}": "Textos contraportada {v0}: {v1}",
+        "updating decorations on page {v0}": "figuritas de la página {v0}",
+        "Page {v0}: no SVG decorations found.":
+          "Página {v0}: figuritas SVG no detectadas.",
+        "updating the matching spine": "rectángulo del lomo correspondiente",
+        "Spine: {v0}": "Lomo: {v0}",
+        "saving changes": "guardar cambios con session.sync()",
+        "Saving changes. Decorations: {v0}. Strips: {v1}. Backgrounds: {v2}. Spines: {v3}. Spine text boxes: {v4}. Back cover text boxes: {v5}.":
+          "Preparado: {v0} figuritas, {v1} franjas, {v2} fondos, {v3} lomo, {v4} texto de lomo y {v5} textos. Guardando...",
+        "Updated pages {v0} and {v1}. Decorations: {v2}. Strips: {v3}. Backgrounds: {v4}. Spines: {v5}. Spine text boxes: {v6}. Back cover text boxes: {v7}.{v8}":
+          "¡Listo! 💗 Páginas {v0} y {v1}: {v2} figuritas, {v3} tiras, {v4} fondos, {v5} lomo, {v6} texto de lomo y {v7} textos de contraportada.{v8}",
+        "Canva temporarily limited requests. Wait a moment and try again.":
+          "Canva limitó temporalmente las consultas. Vuelve a intentarlo después de un momento.",
+        "Error while {v0}: {v1}": "Error durante '{v0}': {v1}",
+        "Enter at least one field: first names, last names, or grade.":
+          "Escribe por lo menos un dato: nombres, apellidos o grado.",
+        "Looking for matching text on all pages...":
+          "Buscando los textos en TODAS las páginas del diseño...",
+        "Checked {v0} of {v1} pages...": "Revisadas {v0} de {v1} páginas...",
+        "Checked {v0} pages and found no matching text boxes. Looked for NOMBRES, APELLIDOS, and GRADO (also 3° A). Previously replaced placeholders will no longer match.{v1}":
+          "Revisé {v0} páginas y no encontré esos cuadros de texto. Busqué NOMBRES, APELLIDOS y GRADO (también 3° A). Si ya fueron reemplazados antes, esos textos originales ya no están.{v1}",
+        "Student details applied. Text boxes updated: {v0}. Pages changed: {v1}. Pages checked: {v2} of {v3}. First names: {v4}. Last names: {v5}. Grades: {v6}.{v7}{v8}":
+          "¡Datos aplicados a todo el diseño! 💗 {v0} cuadros actualizados en {v1} páginas (revisadas {v2} de {v3}). {v4} nombres, {v5} apellidos y {v6} grados.{v7}{v8}",
+        "Could not personalize the design: {v0}": "Error al personalizar: {v0}",
+        "Apply cover palette": "Aplicar paleta",
+        "First names": "Nombres",
+        "Last names": "Apellidos",
+        Grade: "Grado completo",
+        "Apply details to all pages": "Aplicar datos a todas las páginas",
+        "Leave any fields you do not want to change blank.":
+          "Deja en blanco lo que quieras conservar.",
+        "Sky blue": "Celeste",
+        Blue: "Azul",
+        "Navy blue": "Azul marino",
+        Red: "Rojo",
+        Purple: "Morado",
+        Yellow: "Amarillo",
+        Orange: "Naranja",
+        Green: "Verde",
+        White: "Blanco",
+        Cream: "Crema",
+        Pink: "Rosado",
+        Gold: "Dorado",
+        Black: "Negro",
+        "Lime green": "Verde limón",
+        "Dark green": "Verde oscuro",
+        "Light green": "Verde claro",
+        Turquoise: "Turquesa",
+        Fuchsia: "Fucsia",
+        Silver: "Plateado",
+        Lilac: "Lila",
+        Brown: "Marrón",
+        "e.g. Grade 3, Class A": "Ej. 5 años o 3° A",
+        " Notices: {v0}": " Avisos: {v0}",
+        " No matches for: {v0}.": " Sin coincidencias para: {v0}.",
+        "Could not update the spine.": "No se pudo actualizar el lomo.",
+        "Cover colors": "Colores de portada",
+        "Open a Lettra cover or back cover.":
+          "Abre una portada o contraportada de Lettra.",
+        Palette: "Paleta",
+        "Search by color name": "Buscar por nombre de color",
+        "Student details": "Datos del alumno",
+      }
+    : {};
 
+type LettraIntl = {
+  locale: string;
+  formatMessage: (
+    descriptor: MessageDescriptor,
+    values?: Record<string, string | number | boolean>,
+  ) => string;
+};
+
+function useLettraIntl(): LettraIntl {
+  const canvaIntl = useIntl();
+  const previewIntl = useMemo(
+    () =>
+      createIntl({
+        locale: "es-PE",
+        defaultLocale: "en",
+        messages: SPANISH_PREVIEW_MESSAGES,
+      }),
+    [],
+  );
+  return useMemo(
+    () => ({
+      locale:
+        process.env.NODE_ENV === "development" ? "es-PE" : canvaIntl.locale,
+      formatMessage: (
+        descriptor: MessageDescriptor,
+        values?: Record<string, string | number | boolean>,
+      ) => {
+        const source = descriptor.defaultMessage;
+        if (
+          process.env.NODE_ENV === "development" &&
+          typeof source === "string" &&
+          Object.hasOwnProperty.call(SPANISH_PREVIEW_MESSAGES, source)
+        ) {
+          const previewMessage = { ...descriptor, id: source };
+          return previewIntl.formatMessage(previewMessage, values);
+        }
+        return canvaIntl.formatMessage(descriptor, values);
+      },
+    }),
+    [canvaIntl, previewIntl],
+  );
+}
+
+class LocalizedError extends Error {
+  constructor(readonly descriptor: MessageDescriptor) {
+    super(
+      typeof descriptor.defaultMessage === "string"
+        ? descriptor.defaultMessage
+        : "Design operation failed.",
+    );
+    this.name = "LocalizedError";
+  }
+}
+
+function describeError(error: unknown, intl: LettraIntl): string {
+  return error instanceof LocalizedError
+    ? intl.formatMessage(error.descriptor)
+    : error instanceof Error
+      ? error.message
+      : String(error);
+}
 
 type Palette = {
-
   label: string;
 
   value: string;
@@ -29,72 +228,282 @@ type Palette = {
   strip: string;
 
   white?: boolean;
-
 };
 
+const PALETTE_DEFINITIONS: (Omit<Palette, "label"> & {
+  label: MessageDescriptor;
+})[] = [
+  {
+    label: defineMessage({
+      defaultMessage: "Sky blue",
+      description: "Name of a cover color palette.",
+    }),
+    value: "celeste",
+    light: "#A8E0F2",
+    dark: "#60BBDD",
+    accent: "#168FBE",
+    strip: "#119ACD",
+  },
 
+  {
+    label: defineMessage({
+      defaultMessage: "Blue",
+      description: "Name of a cover color palette.",
+    }),
+    value: "azul",
+    light: "#759BE8",
+    dark: "#4379D1",
+    accent: "#19478D",
+    strip: "#12489E",
+  },
 
-const PALETTES: Palette[] = [
+  {
+    label: defineMessage({
+      defaultMessage: "Navy blue",
+      description: "Name of a cover color palette.",
+    }),
+    value: "azul-marino",
+    light: "#365B91",
+    dark: "#294775",
+    accent: "#6999D5",
+    strip: "#173B73",
+  },
 
-  { label: "Celeste", value: "celeste", light: "#A8E0F2", dark: "#60BBDD", accent: "#168FBE", strip: "#119ACD" },
+  {
+    label: defineMessage({
+      defaultMessage: "Red",
+      description: "Name of a cover color palette.",
+    }),
+    value: "rojo",
+    light: "#E63B43",
+    dark: "#D94B42",
+    accent: "#7F1421",
+    strip: "#C41120",
+  },
 
-  { label: "Azul", value: "azul", light: "#9CBDF3", dark: "#4379D1", accent: "#1E4F9E", strip: "#1758B5" },
+  {
+    label: defineMessage({
+      defaultMessage: "Purple",
+      description: "Name of a cover color palette.",
+    }),
+    value: "morado",
+    light: "#AC72D9",
+    dark: "#8C51C6",
+    accent: "#652A9E",
+    strip: "#7835B6",
+  },
 
-  { label: "Azul marino", value: "azul-marino", light: "#365B91", dark: "#294775", accent: "#6999D5", strip: "#173B73" },
+  {
+    label: defineMessage({
+      defaultMessage: "Yellow",
+      description: "Name of a cover color palette.",
+    }),
+    value: "amarillo",
+    light: "#FFEC9B",
+    dark: "#F5C83E",
+    accent: "#B88C00",
+    strip: "#FFD400",
+  },
 
-  { label: "Rojo", value: "rojo", light: "#E95156", dark: "#D94B42", accent: "#CA242C", strip: "#C41120" },
+  {
+    label: defineMessage({
+      defaultMessage: "Orange",
+      description: "Name of a cover color palette.",
+    }),
+    value: "naranja",
+    light: "#FFAA63",
+    dark: "#EB8B3F",
+    accent: "#BD540C",
+    strip: "#F47716",
+  },
 
-  { label: "Morado", value: "morado", light: "#BF95E9", dark: "#8C51C6", accent: "#652A9E", strip: "#7835B6" },
+  {
+    label: defineMessage({
+      defaultMessage: "Green",
+      description: "Name of a cover color palette.",
+    }),
+    value: "verde",
+    light: "#A6DDB0",
+    dark: "#57AD68",
+    accent: "#216F38",
+    strip: "#218D40",
+  },
 
-  { label: "Amarillo", value: "amarillo", light: "#FFEC9B", dark: "#F5C83E", accent: "#B88C00", strip: "#FFD400" },
+  {
+    label: defineMessage({
+      defaultMessage: "White",
+      description: "Name of a cover color palette.",
+    }),
+    value: "blanco",
+    light: "#FFFFFF",
+    dark: "#FFFFFF",
+    accent: "#D9DEE3",
+    strip: "#F9F9F9",
+    white: true,
+  },
 
-  { label: "Naranja", value: "naranja", light: "#FFC28B", dark: "#EB8B3F", accent: "#BD540C", strip: "#F47716" },
+  {
+    label: defineMessage({
+      defaultMessage: "Cream",
+      description: "Name of a cover color palette.",
+    }),
+    value: "crema",
+    light: "#F3E2C8",
+    dark: "#E9CDA6",
+    accent: "#B48248",
+    strip: "#D2A679",
+  },
 
-  { label: "Verde", value: "verde", light: "#A6DDB0", dark: "#57AD68", accent: "#216F38", strip: "#218D40" },
+  {
+    label: defineMessage({
+      defaultMessage: "Pink",
+      description: "Name of a cover color palette.",
+    }),
+    value: "rosado",
+    light: "#F6AED2",
+    dark: "#E77BAD",
+    accent: "#BA347C",
+    strip: "#E44F98",
+  },
 
-  { label: "Blanco", value: "blanco", light: "#FFFFFF", dark: "#FFFFFF", accent: "#D9DEE3", strip: "#F9F9F9", white: true },
+  {
+    label: defineMessage({
+      defaultMessage: "Gold",
+      description: "Name of a cover color palette.",
+    }),
+    value: "dorado",
+    light: "#F7D583",
+    dark: "#C8943D",
+    accent: "#95601D",
+    strip: "#C68D2C",
+  },
 
-  { label: "Crema", value: "crema", light: "#F3E2C8", dark: "#E9CDA6", accent: "#B48248", strip: "#D2A679" },
+  {
+    label: defineMessage({
+      defaultMessage: "Black",
+      description: "Name of a cover color palette.",
+    }),
+    value: "negro",
+    light: "#555555",
+    dark: "#171717",
+    accent: "#888888",
+    strip: "#050505",
+  },
 
-  { label: "Rosado", value: "rosado", light: "#F6AED2", dark: "#E77BAD", accent: "#BA347C", strip: "#E44F98" },
+  {
+    label: defineMessage({
+      defaultMessage: "Lime green",
+      description: "Name of a cover color palette.",
+    }),
+    value: "verde-limon",
+    light: "#DCF295",
+    dark: "#A6CF3F",
+    accent: "#668B10",
+    strip: "#96C91A",
+  },
 
-  { label: "Dorado", value: "dorado", light: "#F4DB89", dark: "#D5A53E", accent: "#956C08", strip: "#D6A20A" },
+  {
+    label: defineMessage({
+      defaultMessage: "Dark green",
+      description: "Name of a cover color palette.",
+    }),
+    value: "verde-oscuro",
+    light: "#78AD89",
+    dark: "#3C8C57",
+    accent: "#155331",
+    strip: "#176B39",
+  },
 
-  { label: "Negro", value: "negro", light: "#555555", dark: "#171717", accent: "#888888", strip: "#050505" },
+  {
+    label: defineMessage({
+      defaultMessage: "Light green",
+      description: "Name of a cover color palette.",
+    }),
+    value: "verde-claro",
+    light: "#A8E38C",
+    dark: "#8DCF96",
+    accent: "#57B64E",
+    strip: "#6FB34E",
+  },
 
-  { label: "Verde limón", value: "verde-limon", light: "#DCF295", dark: "#A6CF3F", accent: "#668B10", strip: "#96C91A" },
+  {
+    label: defineMessage({
+      defaultMessage: "Turquoise",
+      description: "Name of a cover color palette.",
+    }),
+    value: "turquesa",
+    light: "#A5E7E1",
+    dark: "#4BC7BE",
+    accent: "#087F80",
+    strip: "#089F9B",
+  },
 
-  { label: "Verde oscuro", value: "verde-oscuro", light: "#A0CBB0", dark: "#3C8C57", accent: "#155331", strip: "#176B39" },
+  {
+    label: defineMessage({
+      defaultMessage: "Fuchsia",
+      description: "Name of a cover color palette.",
+    }),
+    value: "fucsia",
+    light: "#EB65B5",
+    dark: "#DA4E9B",
+    accent: "#CD258E",
+    strip: "#C00880",
+  },
 
-  { label: "Verde claro", value: "verde-claro", light: "#A8E38C", dark: "#8DCF96", accent: "#57B64E", strip: "#6FB34E" },
+  {
+    label: defineMessage({
+      defaultMessage: "Silver",
+      description: "Name of a cover color palette.",
+    }),
+    value: "plateado",
+    light: "#C8D1DF",
+    dark: "#9BA9BC",
+    accent: "#697C96",
+    strip: "#8494AC",
+  },
 
-  { label: "Turquesa", value: "turquesa", light: "#A5E7E1", dark: "#4BC7BE", accent: "#087F80", strip: "#089F9B" },
+  {
+    label: defineMessage({
+      defaultMessage: "Lilac",
+      description: "Name of a cover color palette.",
+    }),
+    value: "lila",
+    light: "#DAC2F6",
+    dark: "#B7A0E5",
+    accent: "#8055B8",
+    strip: "#9872D0",
+  },
 
-  { label: "Fucsia", value: "fucsia", light: "#EB65B5", dark: "#DA4E9B", accent: "#CD258E", strip: "#C00880" },
-
-  { label: "Plateado", value: "plateado", light: "#E0E4EB", dark: "#A4B1C0", accent: "#A1ADBF", strip: "#8898AA" },
-
-  { label: "Lila", value: "lila", light: "#DAC2F6", dark: "#B7A0E5", accent: "#8055B8", strip: "#9872D0" },
-
-  { label: "Marrón", value: "marron", light: "#B98559", dark: "#9D6037", accent: "#955128", strip: "#763D1D" },
-
+  {
+    label: defineMessage({
+      defaultMessage: "Brown",
+      description: "Name of a cover color palette.",
+    }),
+    value: "marron",
+    light: "#B07B51",
+    dark: "#9D6037",
+    accent: "#955128",
+    strip: "#763D1D",
+  },
 ];
-
-
 
 const PREFIX = "lettra-colors:v21:";
 
-const OLD_PREFIXES = Array.from({ length: 14 }, (_, i) => `lettra-colors:v${20 - i}:`);
+const OLD_PREFIXES = Array.from(
+  { length: 14 },
+  (_, i) => `lettra-colors:v${20 - i}:`,
+);
 
 const memory = new Map<string, string>();
 
 const svgCache = new Map<string, SvgInfo | null>();
 
-const urlCache = new Map<string, { promise: Promise<string>; expires: number }>();
+const urlCache = new Map<
+  string,
+  { promise: Promise<string>; expires: number }
+>();
 
 let nextRequest = 0;
-
-
 
 //* Número de renovación. Conservamos referencias anteriores para reconocer*
 
@@ -103,30 +512,31 @@ let nextRequest = 0;
 const REFRESH_KEY = PREFIX + "asset-generation";
 
 function readAssetGeneration(): number {
-
   try {
-
     const parsed = Number(localStorage.getItem(REFRESH_KEY) ?? "0");
 
-    return Number.isInteger(parsed) && parsed >= 0 && parsed < 1000 ? parsed : 0;
-
-  } catch { return 0; }
-
+    return Number.isInteger(parsed) && parsed >= 0 && parsed < 1000
+      ? parsed
+      : 0;
+  } catch {
+    return 0;
+  }
 }
 
 let assetGeneration = readAssetGeneration();
 
 function versionedAssetKey(base: string): string {
-
   return assetGeneration === 0 ? base : base + ":renovado" + assetGeneration;
-
 }
 
 function refreshAssets(): number {
-
   assetGeneration += 1;
 
-  try { localStorage.setItem(REFRESH_KEY, String(assetGeneration)); } catch { /** sesión actual **/ }
+  try {
+    localStorage.setItem(REFRESH_KEY, String(assetGeneration));
+  } catch {
+    /** sesión actual **/
+  }
 
   //* No eliminamos archivos de Canva, elementos de diseño, ni datos del alumno.*
 
@@ -135,33 +545,30 @@ function refreshAssets(): number {
   urlCache.clear();
 
   return assetGeneration;
-
 }
 
-
-
-
-
 type ColorContainer = {
-
   ref?: { type: string; color?: string };
 
   set?: (value: { type: "solid"; color: string } | undefined) => void;
-
 };
 
 type MediaContainer = {
-
   ref?: { type: string; imageRef?: string };
 
-  set?: (value: { type: "image"; imageRef: string; flipX: boolean; flipY: boolean } | undefined) => void;
-
+  set?: (
+    value:
+      | { type: "image"; imageRef: string; flipX: boolean; flipY: boolean }
+      | undefined,
+  ) => void;
 };
 
-type Fill = { colorContainer?: ColorContainer; mediaContainer?: MediaContainer };
+type Fill = {
+  colorContainer?: ColorContainer;
+  mediaContainer?: MediaContainer;
+};
 
 type ElementData = {
-
   type: string;
 
   locked?: boolean;
@@ -179,19 +586,21 @@ type ElementData = {
   paths?: unknown;
 
   text?: {
-
     readPlaintext: () => string;
 
-    replaceText: (bounds: { index: number; length: number }, value: string) => unknown;
+    replaceText: (
+      bounds: { index: number; length: number },
+      value: string,
+    ) => unknown;
 
-    formatText: (bounds: { index: number; length: number }, formatting: { color: string }) => void;
-
+    formatText: (
+      bounds: { index: number; length: number },
+      formatting: { color: string },
+    ) => void;
   };
-
 };
 
 type PageData = {
-
   type: string;
 
   id?: string;
@@ -203,71 +612,67 @@ type PageData = {
   background?: Fill;
 
   elements?: {
-
     toArray: () => readonly ElementData[];
 
-    insertBefore: (reference: ElementData | undefined, state: never) => ElementData | undefined;
+    insertBefore: (
+      reference: ElementData | undefined,
+      state: never,
+    ) => ElementData | undefined;
 
     moveBefore: (reference: ElementData | undefined, item: ElementData) => void;
 
     delete: (item: ElementData) => void;
-
   };
-
 };
 
 type SvgInfo = { originalRef: string; svg: string; fingerprint: string };
 
 type PageFiguritas = { oldRef: string; info: SvgInfo } | null;
 
-
-
 function readSaved(key: string): string | null {
-
   const cached = memory.get(key);
 
   if (cached) return cached;
 
   try {
-
     for (const prefix of [PREFIX, ...OLD_PREFIXES]) {
-
       const found = localStorage.getItem(prefix + key);
 
-      if (found) { memory.set(key, found); return found; }
-
+      if (found) {
+        memory.set(key, found);
+        return found;
+      }
     }
-
-  } catch { /** El almacenamiento puede no estar disponible. **/ }
+  } catch {
+    /** El almacenamiento puede no estar disponible. **/
+  }
 
   return null;
-
 }
 
 function save(key: string, value: string): void {
-
   memory.set(key, value);
 
-  try { localStorage.setItem(PREFIX + key, value); } catch { /** Continuar. **/ }
-
+  try {
+    localStorage.setItem(PREFIX + key, value);
+  } catch {
+    /** Continuar. **/
+  }
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const isRateLimit = (error: unknown) => /rate.?limit|too many requests|429/i.test(String(error));
-
-
+const isRateLimit = (error: unknown) =>
+  /rate.?limit|too many requests|429/i.test(String(error));
 
 async function temporaryUrl(ref: string): Promise<string> {
-
   const cached = urlCache.get(ref);
 
   if (cached && cached.expires > Date.now()) return cached.promise;
 
   const promise = (async () => {
-
     for (let attempt = 0; attempt < 3; attempt++) {
-
       const now = Date.now();
 
       const scheduled = Math.max(now, nextRequest);
@@ -277,176 +682,214 @@ async function temporaryUrl(ref: string): Promise<string> {
       if (scheduled > now) await sleep(scheduled - now);
 
       try {
-
-        const result = await getTemporaryUrl({ type: "image", ref: ref as never });
+        const result = await getTemporaryUrl({
+          type: "image",
+          ref: ref as never,
+        });
 
         return result.url;
-
       } catch (error) {
-
         if (!isRateLimit(error) || attempt === 2) throw error;
 
         await sleep(2500 * (attempt + 1));
-
       }
-
     }
 
-    throw new Error("No se pudo consultar el recurso de Canva.");
-
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage: "Could not retrieve the Canva asset.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
   })();
 
   urlCache.set(ref, { promise, expires: Date.now() + 120000 });
 
-  try { return await promise; } catch (error) { urlCache.delete(ref); throw error; }
-
+  try {
+    return await promise;
+  } catch (error) {
+    urlCache.delete(ref);
+    throw error;
+  }
 }
 
-
-
 function svgDataUrl(svg: string): string {
-
   const bytes = new TextEncoder().encode(svg);
 
   const text = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
 
   return "data:image/svg+xml;base64," + btoa(text);
-
 }
 
 async function readSvg(ref: string): Promise<string> {
-
   const response = await fetch(await temporaryUrl(ref));
 
-  if (!response.ok) throw new Error("No se pudo leer el SVG.");
+  if (!response.ok)
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage: "Could not read the SVG.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
 
   const svg = await response.text();
 
-  if (!/<svg[\s>]/i.test(svg)) throw new Error("No es un archivo SVG.");
+  if (!/<svg[\s>]/i.test(svg))
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage: "The file is not an SVG.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
 
   return svg;
-
 }
 
 async function fingerprint(svg: string): Promise<string> {
+  const normalized = svg
+    .replace(/<\?\s*xml[\s\S]*?\?>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/>\s+</g, "><")
+    .trim();
 
-  const normalized = svg.replace(/<\?\s*xml[\s\S]*?\?>/gi, "").replace(/<!--[\s\S]*?-->/g, "").replace(/>\s+</g, "><").trim();
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(normalized),
+  );
 
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
-
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 async function getSvgInfo(ref: string): Promise<SvgInfo | null> {
-
   const originalRef = readSaved("original:" + ref) ?? ref;
 
   if (svgCache.has(originalRef)) return svgCache.get(originalRef) ?? null;
 
   try {
-
     let svg: string;
 
-    try { svg = await readSvg(originalRef); }
-
-    catch (error) {
-
+    try {
+      svg = await readSvg(originalRef);
+    } catch (error) {
       if (isRateLimit(error) || ref === originalRef) throw error;
 
       svg = await readSvg(ref);
-
     }
 
     const pathCount = (svg.match(/<path\b/gi) ?? []).length;
 
-    if (pathCount < 30) { svgCache.set(originalRef, null); return null; }
+    if (pathCount < 30) {
+      svgCache.set(originalRef, null);
+      return null;
+    }
 
-    const info: SvgInfo = { originalRef, svg, fingerprint: await fingerprint(svg) };
+    const info: SvgInfo = {
+      originalRef,
+      svg,
+      fingerprint: await fingerprint(svg),
+    };
 
     svgCache.set(originalRef, info);
 
     return info;
-
   } catch (error) {
-
     if (isRateLimit(error)) throw error;
 
     svgCache.set(originalRef, null);
 
     return null;
-
   }
-
 }
 
-
-
-function backgroundKey(palette: Palette): string {
-
-  return ["background-png", palette.value, palette.light, palette.dark, "794x1123"].join(":");
-
+function backgroundKey(
+  palette: Pick<Palette, "value" | "light" | "dark">,
+): string {
+  return [
+    "background-png",
+    palette.value,
+    palette.light,
+    palette.dark,
+    "794x1123",
+  ].join(":");
 }
 
 const PREVIOUS_PALETTES = [
+  ["azul", "#9CBDF3", "#4379D1"],
+  ["rojo", "#E95156", "#D94B42"],
+  ["morado", "#BF95E9", "#8C51C6"],
+  ["naranja", "#FFC28B", "#EB8B3F"],
+  ["dorado", "#F4DB89", "#D5A53E"],
+  ["verde-oscuro", "#A0CBB0", "#3C8C57"],
+  ["plateado", "#E0E4EB", "#A4B1C0"],
+  ["marron", "#B98559", "#9D6037"],
+
   ["rojo", "#F4A39A", "#D94B42"], // Fondo PNG de la versión anterior
   ["verde-claro", "#C6EBC9", "#8DCF96"], // Fondo PNG de la versión anterior
   ["fucsia", "#F1A1D0", "#DA4E9B"], // Fondo PNG de la versión anterior
   ["plateado", "#E0E6ED", "#A4B1C0"], // Fondo PNG de la versión anterior
   ["marron", "#CDA077", "#9D6037"], // Fondo PNG de la versión anterior
 
-  ["celeste", "#A6DCEB", "#72BAD3"], ["azul", "#B3D0F5", "#78A5E4"],
+  ["celeste", "#A6DCEB", "#72BAD3"],
+  ["azul", "#B3D0F5", "#78A5E4"],
 
-  ["rojo", "#F8C8CD", "#E88D9B"], ["morado", "#C192E9", "#9155C5"],
+  ["rojo", "#F8C8CD", "#E88D9B"],
+  ["morado", "#C192E9", "#9155C5"],
 
-  ["amarillo", "#FFE9AD", "#EEC966"], ["naranja", "#FFD5B4", "#F0A66F"],
+  ["amarillo", "#FFE9AD", "#EEC966"],
+  ["naranja", "#FFD5B4", "#F0A66F"],
 
-  ["verde", "#BCE9D0", "#80C7A2"], ["rosado", "#F9C9E1", "#EB93BF"],
+  ["verde", "#BCE9D0", "#80C7A2"],
+  ["rosado", "#F9C9E1", "#EB93BF"],
 
-  ["dorado", "#F9E8B4", "#DDBA65"], ["negro", "#C7C9CD", "#858991"],
+  ["dorado", "#F9E8B4", "#DDBA65"],
+  ["negro", "#C7C9CD", "#858991"],
 
-  ["verde-limon", "#EBF7B9", "#C4DF70"], ["verde-oscuro", "#C6E3D1", "#75AA8D"],
+  ["verde-limon", "#EBF7B9", "#C4DF70"],
+  ["verde-oscuro", "#C6E3D1", "#75AA8D"],
 
-  ["verde-claro", "#DDF4E0", "#A0DAB0"], ["turquesa", "#B9EEE8", "#71D0C7"],
+  ["verde-claro", "#DDF4E0", "#A0DAB0"],
+  ["turquesa", "#B9EEE8", "#71D0C7"],
 
-  ["fucsia", "#F7C0E2", "#E580C3"], ["plateado", "#EEF0F2", "#B8C0C9"],
+  ["fucsia", "#F7C0E2", "#E580C3"],
+  ["plateado", "#EEF0F2", "#B8C0C9"],
 
-  ["celeste", "#C6E6F1", "#8FC7DB"], ["azul", "#B7D1F5", "#6598DE"],
+  ["celeste", "#C6E6F1", "#8FC7DB"],
+  ["azul", "#B7D1F5", "#6598DE"],
 
-  ["rojo", "#FCE0E2", "#F3A2A8"], ["morado", "#EDE0FA", "#BEA5E5"],
+  ["rojo", "#FCE0E2", "#F3A2A8"],
+  ["morado", "#EDE0FA", "#BEA5E5"],
 
-  ["amarillo", "#FFF1C2", "#F1CF72"], ["naranja", "#FFE0C7", "#F5B080"],
+  ["amarillo", "#FFF1C2", "#F1CF72"],
+  ["naranja", "#FFE0C7", "#F5B080"],
 
-  ["verde", "#DDF5E6", "#99D6B4"], ["rosado", "#FDE3F0", "#F5B1D4"],
-
+  ["verde", "#DDF5E6", "#99D6B4"],
+  ["rosado", "#FDE3F0", "#F5B1D4"],
 ] as const;
 
 function knownBackgroundRefs(): Set<string> {
+  const baseKeys = [
+    ...PALETTE_DEFINITIONS.map(backgroundKey),
+    ...PREVIOUS_PALETTES.map(([value, light, dark]) =>
+      backgroundKey({ value, light, dark }),
+    ),
+  ];
+  const keys = baseKeys.flatMap((base) =>
+    Array.from({ length: assetGeneration + 1 }, (_, generation) =>
+      generation === 0 ? base : base + ":renovado" + generation,
+    ),
+  );
 
-  const keys = PALETTES.flatMap((palette) => {
-
-    const base = backgroundKey(palette);
-
-    return Array.from({ length: assetGeneration + 1 }, (_, n) =>
-
-      n === 0 ? base : base + ":renovado" + n
-
-    );
-
-  });
-
-  for (const [value, light, dark] of PREVIOUS_PALETTES) {
-
-    keys.push(["background-png", value, light, dark, "794x1123"].join(":"));
-
-  }
-
-  return new Set(keys.map(readSaved).filter((ref): ref is string => Boolean(ref)));
-
+  return new Set(
+    keys.map(readSaved).filter((ref): ref is string => Boolean(ref)),
+  );
 }
 
 function getImageRefs(page: PageData): string[] {
-
   if (page.type !== "absolute" || !page.elements) return [];
 
   const backgrounds = knownBackgroundRefs();
@@ -454,67 +897,81 @@ function getImageRefs(page: PageData): string[] {
   const refs = new Set<string>();
 
   for (const element of page.elements.toArray()) {
-
     if (element.type !== "rect" || element.locked) continue;
 
     const media = element.fill?.mediaContainer?.ref;
 
-    if (media?.type === "image" && media.imageRef && !backgrounds.has(media.imageRef)) {
-
+    if (
+      media?.type === "image" &&
+      media.imageRef &&
+      !backgrounds.has(media.imageRef)
+    ) {
       refs.add(media.imageRef);
-
     }
-
   }
 
   return [...refs];
-
 }
 
 async function findSvg(page: PageData): Promise<PageFiguritas> {
-
   for (const ref of getImageRefs(page).slice(0, 24)) {
-
     const info = await getSvgInfo(ref);
 
     if (info) return { oldRef: ref, info };
-
   }
 
   return null;
-
 }
 
 function recolorSvg(original: string, hex: string): string {
+  let svg = original
+    .replace(/<\?\s*xml[\s\S]*?\?>/gi, "")
+    .replace(/<!\s*DOCTYPE[\s\S]*?>/gi, "");
 
-  let svg = original.replace(/<\?\s*xml[\s\S]*?\?>/gi, "").replace(/<!\s*DOCTYPE[\s\S]*?>/gi, "");
+  svg = svg.replace(
+    /\b(fill|stroke)\s*=\s*(["'])(.*?)\2/gi,
+    (full, attribute: string, quote: string, value: string) => {
+      const color = value.trim().toLowerCase();
 
-  svg = svg.replace(/\b(fill|stroke)\s*=\s*(["'])(.*?)\2/gi, (full, attribute: string, quote: string, value: string) => {
+      if (
+        color === "none" ||
+        color === "transparent" ||
+        color.startsWith("url(")
+      )
+        return full;
 
-    const color = value.trim().toLowerCase();
+      return `${attribute}=${quote}${hex}${quote}`;
+    },
+  );
 
-    if (color === "none" || color === "transparent" || color.startsWith("url(")) return full;
+  svg = svg.replace(
+    /\b(fill|stroke)\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|[a-z]+)/gi,
+    (full, attribute: string, value: string) => {
+      const color = value.trim().toLowerCase();
 
-    return `${attribute}=${quote}${hex}${quote}`;
-
-  });
-
-  svg = svg.replace(/\b(fill|stroke)\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|[a-z]+)/gi, (full, attribute: string, value: string) => {
-
-    const color = value.trim().toLowerCase();
-
-    return color === "none" || color === "transparent" ? full : `${attribute}:${hex}`;
-
-  });
+      return color === "none" || color === "transparent"
+        ? full
+        : `${attribute}:${hex}`;
+    },
+  );
 
   const match = svg.match(/<svg\b([^>]*)>/i);
 
-  if (!match) throw new Error("El SVG no es válido.");
+  if (!match)
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage: "The SVG is invalid.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
 
-  const attributes = (match[1] ?? "").replace(/\sfill\s*=\s*(["'])[^"']*\1/gi, "");
+  const attributes = (match[1] ?? "").replace(
+    /\sfill\s*=\s*(["'])[^"']*\1/gi,
+    "",
+  );
 
   return svg.replace(/<svg\b[^>]*>/i, `<svg${attributes} fill="${hex}">`);
-
 }
 
 //* Comprobar si un recurso guardado sigue disponible antes de reutilizarlo.*
@@ -522,9 +979,7 @@ function recolorSvg(original: string, hex: string): string {
 //* Canva no recomienda conservar ImageRef de manera indefinida.*
 
 async function savedAssetAvailable(ref: string): Promise<boolean> {
-
   try {
-
     const url = await temporaryUrl(ref);
 
     const response = await fetch(url);
@@ -532,23 +987,16 @@ async function savedAssetAvailable(ref: string): Promise<boolean> {
     if (!response.ok) urlCache.delete(ref);
 
     return response.ok;
-
   } catch (error) {
-
     if (isRateLimit(error)) throw error;
 
     urlCache.delete(ref);
 
     return false;
-
   }
-
 }
 
-
-
 async function getColoredRef(info: SvgInfo, hex: string): Promise<string> {
-
   const baseKey = "color:" + info.fingerprint + ":" + hex;
 
   let key = versionedAssetKey(baseKey);
@@ -556,7 +1004,6 @@ async function getColoredRef(info: SvgInfo, hex: string): Promise<string> {
   const cached = readSaved(key);
 
   if (cached) {
-
     if (await savedAssetAvailable(cached)) return cached;
 
     //* La referencia ya no sirve: pasar a otra generación sin destruir*
@@ -566,13 +1013,11 @@ async function getColoredRef(info: SvgInfo, hex: string): Promise<string> {
     refreshAssets();
 
     key = versionedAssetKey(baseKey);
-
   }
 
-  const thumbnail = `<svg xmlns="http\://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${hex}"/></svg>`;
+  const thumbnail = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${hex}"/></svg>`;
 
   const asset = await upload({
-
     type: "image",
 
     mimeType: "image/svg+xml",
@@ -584,7 +1029,6 @@ async function getColoredRef(info: SvgInfo, hex: string): Promise<string> {
     aiDisclosure: "none",
 
     name: "Lettra Colors - Figuritas " + hex,
-
   });
 
   await asset.whenUploaded();
@@ -594,79 +1038,88 @@ async function getColoredRef(info: SvgInfo, hex: string): Promise<string> {
   save("original:" + asset.ref, info.originalRef);
 
   return asset.ref;
-
 }
 
 // El fondo ahora es un color de página nativo; no se crean ni suben PNG.
 
 function getPaths(value: unknown): readonly { fill?: Fill }[] {
-
   if (Array.isArray(value)) return value;
 
   if (value && typeof value === "object" && "toArray" in value) {
-
     const collection = value as { toArray?: () => readonly { fill?: Fill }[] };
 
     if (typeof collection.toArray === "function") return collection.toArray();
-
   }
 
   return [];
-
 }
 
 function getStrip(page: PageData): ColorContainer | null {
-
   if (page.type !== "absolute" || !page.elements) return null;
 
-  const candidates = page.elements.toArray().filter((element) =>
-
-    element.type === "shape" && !element.locked &&
-
-    element.width > 150 && element.width < 350 &&
-
-    element.height > 800 && element.height / element.width > 3.5
-
-  );
+  const candidates = page.elements
+    .toArray()
+    .filter(
+      (element) =>
+        element.type === "shape" &&
+        !element.locked &&
+        element.width > 150 &&
+        element.width < 350 &&
+        element.height > 800 &&
+        element.height / element.width > 3.5,
+    );
 
   if (candidates.length !== 1) return null;
 
-  const paths = getPaths(candidates[0]!.paths);
+  const candidate = candidates[0];
+  if (!candidate) return null;
+  const paths = getPaths(candidate.paths);
 
   if (paths.length !== 1) return null;
 
   const container = paths[0]?.fill?.colorContainer;
 
-  return container?.ref?.type === "solid" && typeof container.set === "function" ? container : null;
-
+  return container?.ref?.type === "solid" && typeof container.set === "function"
+    ? container
+    : null;
 }
 
-function replaceFiguritas(page: PageData, oldRef: string, newRef: string): boolean {
-
+function replaceFiguritas(
+  page: PageData,
+  oldRef: string,
+  newRef: string,
+): boolean {
   if (!page.elements) return false;
 
   if (oldRef === newRef) return true;
 
   for (const element of page.elements.toArray()) {
-
     const media = element.fill?.mediaContainer;
 
-    if (element.type === "rect" && !element.locked && media?.ref?.imageRef === oldRef && media.set) {
-
-      media.set({ type: "image", imageRef: newRef, flipX: false, flipY: false });
+    if (
+      element.type === "rect" &&
+      !element.locked &&
+      media?.ref?.imageRef === oldRef &&
+      media.set
+    ) {
+      media.set({
+        type: "image",
+        imageRef: newRef,
+        flipX: false,
+        flipY: false,
+      });
 
       return true;
-
     }
-
   }
 
   return false;
-
 }
 
-function findBackgroundLayers(page: PageData, excludedRef: string | null): ElementData[] {
-
+function findBackgroundLayers(
+  page: PageData,
+  excludedRef: string | null,
+): ElementData[] {
   if (!page.elements || !page.dimensions) return [];
 
   const { width, height } = page.dimensions;
@@ -674,30 +1127,41 @@ function findBackgroundLayers(page: PageData, excludedRef: string | null): Eleme
   const known = knownBackgroundRefs();
 
   return page.elements.toArray().filter((element) => {
-
     const media = element.fill?.mediaContainer?.ref;
 
-    if (element.type !== "rect" || media?.type !== "image" ||
+    if (
+      element.type !== "rect" ||
+      media?.type !== "image" ||
+      !media.imageRef ||
+      media.imageRef === excludedRef
+    )
+      return false;
 
-        !media.imageRef || media.imageRef === excludedRef) return false;
+    const big =
+      element.width >= width * 0.95 && element.height >= height * 0.95;
 
-    const big = element.width >= width * 0.95 && element.height >= height * 0.95;
-
-    const positioned = Math.abs(element.left) < width * 0.15 && Math.abs(element.top) < height * 0.15;
+    const positioned =
+      Math.abs(element.left) < width * 0.15 &&
+      Math.abs(element.top) < height * 0.15;
 
     //* Seguridad: JAMÁS borrar una ilustración solo porque esté en la primera capa.*
 
     return big && positioned && known.has(media.imageRef);
-
   });
-
 }
 
 // Aplica un color SOLIDO a la propia página de Canva, no a una imagen.
 function nativeBase(page: PageData, color: string): void {
   const background = page.background;
   if (!background || typeof background.colorContainer?.set !== "function") {
-    throw new Error("Canva no permite modificar directamente el color de esta página.");
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage:
+          "Canva does not allow changing this page's background color directly.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
   }
   // Primero quitar una posible imagen de fondo de Canva y luego fijar el color.
   background.mediaContainer?.set?.(undefined);
@@ -713,9 +1177,20 @@ function pageBackgroundColor(palette: Palette): string {
 
 // Solo retiramos los PNG de fondo que Lettra Colors reconoce por sus referencias
 // guardadas; JAMAS borramos fotos o ilustraciones ajenas a nuestra aplicación.
-function applyBackground(page: PageData, palette: Palette, figuritasRef: string | null): number {
+function applyBackground(
+  page: PageData,
+  palette: Palette,
+  figuritasRef: string | null,
+): number {
   if (!page.elements || !page.dimensions) {
-    throw new Error("Esta página no permite cambiar su fondo nativo.");
+    throw new LocalizedError(
+      defineMessage({
+        defaultMessage:
+          "This page does not support editing its native background.",
+        description:
+          "Error while accessing or editing a Canva design or asset.",
+      }),
+    );
   }
 
   const oldLayers = findBackgroundLayers(page, figuritasRef);
@@ -736,32 +1211,20 @@ function applyBackground(page: PageData, palette: Palette, figuritasRef: string 
 
 //* -------------------------------------------------------------*
 
-
-
 type LomoTarget = {
-
   element: ElementData;
 
   colorContainer: ColorContainer;
-
 };
 
-
-
 function getLomoColorContainer(element: ElementData): ColorContainer | null {
-
   if (element.type === "rect") {
-
     const container = element.fill?.colorContainer;
 
     return container?.ref?.type === "solid" ? container : null;
-
   }
 
-
-
   if (element.type === "shape") {
-
     const paths = getPaths(element.paths);
 
     if (paths.length !== 1) return null;
@@ -769,70 +1232,52 @@ function getLomoColorContainer(element: ElementData): ColorContainer | null {
     const container = paths[0]?.fill?.colorContainer;
 
     return container?.ref?.type === "solid" ? container : null;
-
   }
 
-
-
   return null;
-
 }
 
-
-
 function getLomoCandidates(page: PageData): LomoTarget[] {
-
   if (page.type !== "absolute" || !page.elements || !page.dimensions) return [];
-
-
 
   const { width: pageWidth, height: pageHeight } = page.dimensions;
 
   if (pageWidth <= 0 || pageHeight <= 0) return [];
 
-
-
-  return page.elements.toArray()
+  return page.elements
+    .toArray()
 
     .filter((element) => {
-
       const widthRatio = element.width / pageWidth;
 
       const heightRatio = element.height / pageHeight;
 
-      const verticalCoverage = element.top <= pageHeight * 0.12 &&
-
+      const verticalCoverage =
+        element.top <= pageHeight * 0.12 &&
         element.top + element.height >= pageHeight * 0.88;
 
-      const insidePage = element.left >= -pageWidth * 0.06 &&
-
+      const insidePage =
+        element.left >= -pageWidth * 0.06 &&
         element.left + element.width <= pageWidth * 1.06;
 
-
-
-      return widthRatio >= 0.16 && widthRatio <= 0.34 &&
-
-        heightRatio >= 0.85 && heightRatio <= 1.14 &&
-
-        verticalCoverage && insidePage &&
-
-        getLomoColorContainer(element) !== null;
-
+      return (
+        widthRatio >= 0.16 &&
+        widthRatio <= 0.34 &&
+        heightRatio >= 0.85 &&
+        heightRatio <= 1.14 &&
+        verticalCoverage &&
+        insidePage &&
+        getLomoColorContainer(element) != null
+      );
     })
 
-    .map((element) => ({
-
-      element,
-
-      colorContainer: getLomoColorContainer(element)!,
-
-    }))
+    .flatMap((element) => {
+      const colorContainer = getLomoColorContainer(element);
+      return colorContainer ? [{ element, colorContainer }] : [];
+    })
 
     .sort((a, b) => a.element.left - b.element.left);
-
 }
-
-
 
 //* Para reconocer una página completa de lomos exigimos cuatro columnas*
 
@@ -841,37 +1286,28 @@ function getLomoCandidates(page: PageData): LomoTarget[] {
 //* rectángulo alto, pues las portadas también tienen una franja lateral.*
 
 function isFirstLomoPage(page: PageData): boolean {
-
   if (!page.dimensions) return false;
 
   const candidates = getLomoCandidates(page);
 
   if (candidates.length !== 4) return false;
 
-
-
   const pageWidth = page.dimensions.width;
 
   return candidates.every((candidate, index) => {
-
     const center = candidate.element.left + candidate.element.width / 2;
 
-    const expected = (index + 0.5) * pageWidth / 4;
+    const expected = ((index + 0.5) * pageWidth) / 4;
 
     return Math.abs(center - expected) <= pageWidth * 0.085;
-
   });
-
 }
-
-
 
 //* Aceptamos páginas completas con cuatro lomos y una última página*
 
 //* con uno, dos o tres. Las posiciones se verifican antes de editar.*
 
 function isLomoPageWithColumns(page: PageData, columns: number): boolean {
-
   if (!page.dimensions || columns < 1 || columns > 4) return false;
 
   const candidates = getLomoCandidates(page);
@@ -881,54 +1317,40 @@ function isLomoPageWithColumns(page: PageData, columns: number): boolean {
   const pageWidth = page.dimensions.width;
 
   return candidates.every((candidate, index) => {
-
     const center = candidate.element.left + candidate.element.width / 2;
 
-    const expected = (index + 0.5) * pageWidth / 4;
+    const expected = ((index + 0.5) * pageWidth) / 4;
 
     return Math.abs(center - expected) <= pageWidth * 0.085;
-
   });
-
 }
-
-
 
 //* Identifica únicamente el texto del lomo situado sobre la columna elegida.*
 
 //* No modifica los demás rótulos y nunca crea un cuadro nuevo.*
 
 function findTextForLomo(
-
   page: PageData,
 
   columns: LomoTarget[],
 
-  position: number
-
+  position: number,
 ): ElementData | null {
-
   if (!page.elements || !page.dimensions) return null;
 
   const target = columns[position];
 
   if (!target) return null;
 
-
-
-  const texts = page.elements.toArray().filter((element) =>
-
-    element.type === "text" &&
-
-    !element.locked &&
-
-    Boolean(element.text?.formatText) &&
-
-    Boolean(element.text?.readPlaintext().trim())
-
-  );
-
-
+  const texts = page.elements
+    .toArray()
+    .filter(
+      (element) =>
+        element.type === "text" &&
+        !element.locked &&
+        Boolean(element.text?.formatText) &&
+        Boolean(element.text?.readPlaintext().trim()),
+    );
 
   //* Primero: localizar por la posición horizontal, incluso si el texto*
 
@@ -938,91 +1360,67 @@ function findTextForLomo(
 
   const tolerance = page.dimensions.width * 0.12;
 
-  const matches = texts.filter((element) =>
-
-    Math.abs(element.left + element.width / 2 - centerX) <= tolerance
-
+  const matches = texts.filter(
+    (element) =>
+      Math.abs(element.left + element.width / 2 - centerX) <= tolerance,
   );
 
-  if (matches.length === 1) return matches[0]!;
-
-
+  if (matches.length === 1) return matches[0] ?? null;
 
   //* Alternativa segura: si hay exactamente un texto por rectángulo,*
 
   //* ordenar ambos grupos de izquierda a derecha.*
 
   if (texts.length === columns.length) {
-
-    return [...texts].sort((a, b) =>
-
-      (a.left + a.width / 2) - (b.left + b.width / 2)
-
-    )[position] ?? null;
-
+    return (
+      [...texts].sort((a, b) => a.left + a.width / 2 - (b.left + b.width / 2))[
+        position
+      ] ?? null
+    );
   }
-
-
 
   //* Si la página contiene textos extras, mejor no cambiar uno equivocado.*
 
   return null;
-
 }
 
-
-
 type LomoResult = {
-
   rectChanged: boolean;
 
   textChanged: boolean;
 
   warning: string;
-
 };
-
-
 
 //* Usa la misma sesión del botón principal y cambia solo el relleno de las*
 
 //* letras con formatText({ color }). No toca el efecto/contorno blanco de Canva.*
 
 async function recolorLomoInSession(
-
   session: {
-
     pageRefs: { toArray: () => readonly unknown[] };
 
     helpers: {
-
       openPage: (
-
         reference: never,
 
-        callback: (result: { page: unknown }) => Promise<void>
-
+        callback: (result: { page: unknown }) => Promise<void>,
       ) => Promise<unknown>;
-
     };
-
   },
 
   pairIndex: number,
 
   hex: string,
 
-  textHex: string
-
+  textHex: string,
+  intl: LettraIntl,
 ): Promise<LomoResult> {
-
   const refs = session.pageRefs.toArray();
 
   let startIndex: number | null = null;
 
   let totalPairs = 0;
-
-
 
   //* Primera página de lomos = después de 2 páginas por cada portada.*
 
@@ -1030,10 +1428,11 @@ async function recolorLomoInSession(
 
   //* en un documento de 16 portadas probamos también la página 33.*
 
-  for (let candidateStart = 2 * Math.floor((refs.length - 1) / 2);
-
-       candidateStart >= 2; candidateStart -= 2) {
-
+  for (
+    let candidateStart = 2 * Math.floor((refs.length - 1) / 2);
+    candidateStart >= 2;
+    candidateStart -= 2
+  ) {
     const pairs = candidateStart / 2;
 
     const neededLomoPages = Math.ceil(pairs / 4);
@@ -1042,25 +1441,17 @@ async function recolorLomoInSession(
 
     if (pairIndex >= pairs) continue;
 
-
-
     const firstRef = refs[candidateStart] as never;
 
     if (!firstRef) continue;
 
-
-
     let startsWithFourColumns = false;
 
     await session.helpers.openPage(firstRef, async ({ page }) => {
-
       startsWithFourColumns = isFirstLomoPage(page as PageData);
-
     });
 
     if (!startsWithFourColumns) continue;
-
-
 
     //* Si la página anterior también tiene 4 lomos, estamos dentro del*
 
@@ -1071,28 +1462,24 @@ async function recolorLomoInSession(
     let precedingIsLomo = false;
 
     if (precedingRef) {
-
       await session.helpers.openPage(precedingRef, async ({ page }) => {
-
         precedingIsLomo = isFirstLomoPage(page as PageData);
-
       });
-
     }
 
     if (precedingIsLomo) continue;
-
-
 
     //* Confirmamos todas las páginas de lomos, incluida la última parcial.*
 
     let validBlock = true;
 
     for (let group = 0; group < neededLomoPages; group++) {
-
       const ref = refs[candidateStart + group] as never;
 
-      if (!ref) { validBlock = false; break; }
+      if (!ref) {
+        validBlock = false;
+        break;
+      }
 
       const remaining = pairs - group * 4;
 
@@ -1101,7 +1488,6 @@ async function recolorLomoInSession(
       let validPage = false;
 
       await session.helpers.openPage(ref, async ({ page }) => {
-
         const data = page as PageData;
 
         validPage = isLomoPageWithColumns(data, expectedColumns);
@@ -1111,44 +1497,49 @@ async function recolorLomoInSession(
         //* aunque sobren espacios; no se colorean los sobrantes.*
 
         if (!validPage && expectedColumns < 4) {
-
           validPage = isFirstLomoPage(data);
-
         }
-
       });
 
-      if (!validPage) { validBlock = false; break; }
-
+      if (!validPage) {
+        validBlock = false;
+        break;
+      }
     }
 
     if (!validBlock) continue;
-
-
 
     startIndex = candidateStart;
 
     totalPairs = pairs;
 
     break;
-
   }
 
-
-
-  if (startIndex === null) {
-
-    return { rectChanged: false, textChanged: false, warning: "No pude reconocer el bloque de lomos. Ningún rectángulo fue modificado." };
-
+  if (startIndex == null) {
+    return {
+      rectChanged: false,
+      textChanged: false,
+      warning: intl.formatMessage({
+        defaultMessage:
+          "Could not identify the spine section. No rectangles were changed.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      }),
+    };
   }
 
   if (pairIndex < 0 || pairIndex >= totalPairs) {
-
-    return { rectChanged: false, textChanged: false, warning: "Esta página no corresponde a una portada con lomo." };
-
+    return {
+      rectChanged: false,
+      textChanged: false,
+      warning: intl.formatMessage({
+        defaultMessage: "This page does not match a cover with a spine.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      }),
+    };
   }
-
-
 
   const lomoPageIndex = startIndex + Math.floor(pairIndex / 4);
 
@@ -1156,9 +1547,16 @@ async function recolorLomoInSession(
 
   const lomoRef = refs[lomoPageIndex] as never;
 
-  if (!lomoRef) return { rectChanged: false, textChanged: false, warning: "No existe la página del lomo correspondiente." };
-
-
+  if (!lomoRef)
+    return {
+      rectChanged: false,
+      textChanged: false,
+      warning: intl.formatMessage({
+        defaultMessage: "The matching spine page does not exist.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      }),
+    };
 
   let changed = false;
 
@@ -1167,170 +1565,166 @@ async function recolorLomoInSession(
   let problem = "";
 
   await session.helpers.openPage(lomoRef, async ({ page: rawPage }) => {
-
     const page = rawPage as PageData;
 
     if (page.type !== "absolute" || page.locked) {
-
-      problem = "La página de lomos está bloqueada o no es editable.";
+      problem = intl.formatMessage({
+        defaultMessage: "The spine page is locked or cannot be edited.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
       return;
-
     }
 
     const candidates = getLomoCandidates(page);
 
-    const expectedColumns = Math.min(4, totalPairs - Math.floor(pairIndex / 4) * 4);
+    const expectedColumns = Math.min(
+      4,
+      totalPairs - Math.floor(pairIndex / 4) * 4,
+    );
 
-    const aligned = isLomoPageWithColumns(page, expectedColumns) ||
-
+    const aligned =
+      isLomoPageWithColumns(page, expectedColumns) ||
       (expectedColumns < 4 && isFirstLomoPage(page));
 
     if (!aligned) {
-
-      problem = "No reconozco con seguridad las columnas de esta página de lomos.";
+      problem = intl.formatMessage({
+        defaultMessage:
+          "Could not reliably identify the columns on this spine page.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
       return;
-
     }
-
-
 
     const target = candidates[position];
 
     if (!target || target.element.locked || !target.colorContainer.set) {
-
-      problem = "El rectángulo del lomo está bloqueado o no permite cambiar color.";
+      problem = intl.formatMessage({
+        defaultMessage:
+          "The spine rectangle is locked or its color cannot be changed.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
       return;
-
     }
 
     target.colorContainer.set({ type: "solid", color: hex.toLowerCase() });
 
     changed = true;
 
-
-
     const label = findTextForLomo(page, candidates, position);
 
     if (!label?.text) {
-
-      problem = "Rectángulo actualizado, pero no pude identificar con seguridad el texto de ese lomo.";
+      problem = intl.formatMessage({
+        defaultMessage:
+          "The rectangle was updated, but its spine text could not be reliably identified.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
       return;
-
     }
 
-
-
     try {
-
       const content = label.text.readPlaintext();
 
       if (!content.trim()) {
-
-        problem = "Rectángulo actualizado, pero el texto del lomo está vacío.";
+        problem = intl.formatMessage({
+          defaultMessage:
+            "The rectangle was updated, but the spine text is empty.",
+          description:
+            "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+        });
 
         return;
-
       }
 
       //* Solo color: no sustituye palabras, fuente, posición, rotación ni efecto.*
 
       label.text.formatText(
-
         { index: 0, length: content.length },
 
-        { color: textHex.toLowerCase() }
-
+        { color: textHex.toLowerCase() },
       );
 
       textChanged = true;
-
     } catch (error) {
-
-      problem = "Rectángulo actualizado; Canva no permitió recolorear el texto: " + String(error);
-
+      problem = intl.formatMessage(
+        {
+          defaultMessage:
+            "The rectangle was updated, but Canva could not recolor its text: {v0}",
+          description:
+            "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+        },
+        { v0: describeError(error, intl) },
+      );
     }
-
   });
 
-
-
   return {
-
     rectChanged: changed,
 
     textChanged,
 
-    warning: problem || (changed ? "" : "No se pudo actualizar el lomo."),
-
+    warning:
+      problem ||
+      (changed
+        ? ""
+        : intl.formatMessage({
+            defaultMessage: "Could not update the spine.",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          })),
   };
-
 }
-
-
 
 //* Comparamos el contenido completo para no tocar títulos ni otros textos.*
 
 function normalizedText(value: string): string {
-
-  return value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("es");
-
+  return value
+    .normalize("NFC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("es");
 }
-
-
 
 //* Contraportada: colorear solo Nombres y Apellidos, manteniendo su tipografía.*
 
 //* No usar formatParagraph: en las pruebas anteriores dio errores de Canva.*
 
 function getBackTextColor(palette: Palette): string {
-
-  if (palette.value === "negro" || palette.value === "azul-marino") return "#ffffff";
+  if (palette.value === "negro" || palette.value === "azul-marino")
+    return "#ffffff";
 
   if (palette.white) return "#555555";
 
-
-
   const rgb = (hex: string): number[] =>
-
     [1, 3, 5].map((n) => parseInt(hex.slice(n, n + 2), 16));
 
-
-
   const luminance = (hex: string): number => {
-
     const channels = rgb(hex).map((v) => {
-
       const c = v / 255;
 
       return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-
     });
 
-    return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
-
+    const [red = 0, green = 0, blue = 0] = channels;
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
   };
 
-
-
   const contrast = (a: string, b: string): number => {
-
     const l1 = luminance(a);
 
     const l2 = luminance(b);
 
     return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-
   };
 
-
-
   const base = rgb(palette.accent);
-
-
 
   //* Oscurecer gradualmente hasta un contraste práctico, sin llegar a negro.*
 
@@ -1339,45 +1733,49 @@ function getBackTextColor(palette: Palette): string {
   //* ser necesario revisar el contraste visualmente antes de imprimir.*
 
   for (let step = 0; step <= 60; step++) {
-
     const scale = 1 - step / 100;
 
-    const color = "#" + base
+    const color =
+      "#" +
+      base
 
-      .map((v) => Math.round(v * scale).toString(16).padStart(2, "0"))
+        .map((v) =>
+          Math.round(v * scale)
+            .toString(16)
+            .padStart(2, "0"),
+        )
 
-      .join("");
+        .join("");
 
-
-
-    if (contrast(color, palette.dark) >= 3 && contrast(color, palette.light) >= 3) {
-
+    if (
+      contrast(color, palette.dark) >= 3 &&
+      contrast(color, palette.light) >= 3
+    ) {
       return color;
-
     }
-
   }
-
-
 
   //* Mantener el matiz original si el contraste resulta insuficiente.*
 
-  return "#" + base
+  return (
+    "#" +
+    base
 
-    .map((v) => Math.round(v * 0.4).toString(16).padStart(2, "0"))
+      .map((v) =>
+        Math.round(v * 0.4)
+          .toString(16)
+          .padStart(2, "0"),
+      )
 
-    .join("");
-
+      .join("")
+  );
 }
-
-
 
 //* Letras del lomo: mantenemos el efecto/borde BLANCO que ya esta en Canva.*
 
 //* Solamente modificamos el color del texto; no cambiamos el efecto.*
 
 function darkenHex(hex: string, amount: number): string {
-
   const digits = hex.replace(/^#/, "");
 
   if (!/^[0-9a-fA-F]{6}$/.test(digits)) return hex.toLowerCase();
@@ -1385,23 +1783,17 @@ function darkenHex(hex: string, amount: number): string {
   const factor = Math.max(0, Math.min(1, 1 - amount));
 
   const values = [0, 2, 4].map((start) =>
-
     Math.round(parseInt(digits.slice(start, start + 2), 16) * factor)
 
       .toString(16)
 
-      .padStart(2, "0")
-
+      .padStart(2, "0"),
   );
 
   return "#" + values.join("");
-
 }
 
-
-
 function getLomoTextColor(palette: Palette): string {
-
   //* Negro: letras negras, borde blanco.*
 
   if (palette.value === "negro") return "#050505";
@@ -1413,10 +1805,7 @@ function getLomoTextColor(palette: Palette): string {
   //* Resto: mismo matiz de la franja, un tono mas oscuro.*
 
   return darkenHex(palette.strip, 0.28);
-
 }
-
-
 
 //* Solo cambia los cuadros de Nombres y Apellidos en la contraportada.*
 
@@ -1424,19 +1813,23 @@ function getLomoTextColor(palette: Palette): string {
 
 //* también los reconoce sin exigir que conserven las etiquetas originales.*
 
-function recolorBackNames(page: PageData, color: string, names: string, surnames: string): number {
-
+function recolorBackNames(
+  page: PageData,
+  color: string,
+  names: string,
+  surnames: string,
+): number {
   if (!page.elements) return 0;
 
-
-
-  const texts = page.elements.toArray().filter(
-
-    (element) => element.type === "text" && !element.locked && element.text && element.text.readPlaintext().trim()
-
-  );
-
-
+  const texts = page.elements
+    .toArray()
+    .filter(
+      (element) =>
+        element.type === "text" &&
+        !element.locked &&
+        element.text &&
+        element.text.readPlaintext().trim(),
+    );
 
   const expected = ["Nombres", "Apellidos", names, surnames]
 
@@ -1444,15 +1837,11 @@ function recolorBackNames(page: PageData, color: string, names: string, surnames
 
     .map(normalizedText);
 
-
-
-  let candidates = texts.filter((element) =>
-
-    expected.includes(normalizedText(element.text!.readPlaintext()))
-
+  let candidates = texts.filter(
+    (element) =>
+      element.text &&
+      expected.includes(normalizedText(element.text.readPlaintext())),
   );
-
-
 
   //* Solo si hay exactamente dos cuadros de texto, asumir que son*
 
@@ -1460,39 +1849,32 @@ function recolorBackNames(page: PageData, color: string, names: string, surnames
 
   if (texts.length === 2) candidates = texts;
 
-
-
   let changed = 0;
 
   for (const element of candidates) {
-
-    const content = element.text!.readPlaintext();
+    const text = element.text;
+    if (!text) continue;
+    const content = text.readPlaintext();
 
     try {
-
-      element.text!.formatText({ index: 0, length: content.length }, { color });
+      text.formatText({ index: 0, length: content.length }, { color });
 
       changed++;
-
     } catch {
-
       //* Mantener intacta la tipografía si un elemento no es editable.*
-
     }
-
   }
 
   return changed;
-
 }
 
-
-
 export const App = () => {
-
+  const intl = useLettraIntl();
+  const PALETTES: Palette[] = PALETTE_DEFINITIONS.map((item) => ({
+    ...item,
+    label: intl.formatMessage(item.label),
+  }));
   const [selected, setSelected] = useState("celeste");
-
-
 
   //* Los textos originales son fijos en todas las plantillas.*
 
@@ -1510,45 +1892,67 @@ export const App = () => {
 
   const [busy, setBusy] = useState(false);
 
-  const [showColorDetails, setShowColorDetails] = useState(false);
-
-  const [showDataHelp, setShowDataHelp] = useState(false);
-
   const running = useRef(false);
 
-  const palette: Palette = PALETTES.find((item) => item.value === selected) ?? PALETTES[0]!;
-
-
+  const defaultPalette = PALETTES[0];
+  if (!defaultPalette)
+    throw new Error(
+      intl.formatMessage({
+        defaultMessage: "No palette definitions available.",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      }),
+    );
+  const palette: Palette =
+    PALETTES.find((item) => item.value === selected) ?? defaultPalette;
 
   const apply = async () => {
-
     if (running.current) return;
 
     running.current = true;
 
     setBusy(true);
 
-    let fase = "identificar portada y contraportada";
+    let fase = intl.formatMessage({
+      defaultMessage: "identifying the cover pair",
+      description:
+        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+    });
 
     try {
-
-      setMessage("Buscando la página abierta y su pareja...");
+      setMessage(
+        intl.formatMessage({
+          defaultMessage: "Finding the current page and its matching cover...",
+          description:
+            "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+        }),
+      );
 
       let currentId: string | undefined;
 
       await openDesign({ type: "current_page" }, async (session) => {
-
         const page = session.page as unknown as PageData;
 
-        if (page.type !== "absolute") throw new Error("Esta página no es compatible.");
+        if (page.type !== "absolute")
+          throw new Error(
+            intl.formatMessage({
+              defaultMessage: "This page is not supported.",
+              description:
+                "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+            }),
+          );
 
         currentId = page.id;
-
       });
 
-      if (!currentId) throw new Error("Canva no proporcionó el ID de la página.");
-
-
+      if (!currentId)
+        throw new Error(
+          intl.formatMessage({
+            defaultMessage: "Canva did not provide the page ID.",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          }),
+        );
 
       let firstIndex = -1;
 
@@ -1557,7 +1961,6 @@ export const App = () => {
       const svgByIndex = new Map<number, PageFiguritas>();
 
       await openDesign({ type: "all_pages" }, async (session) => {
-
         const refs = session.pageRefs.toArray();
 
         pageCount = refs.length;
@@ -1565,67 +1968,92 @@ export const App = () => {
         let currentIndex = -1;
 
         for (let i = 0; i < refs.length; i++) {
-
           const ref = refs[i];
 
           if (!ref || ref.type !== "absolute") continue;
 
           await session.helpers.openPage(ref, async ({ page }) => {
-
             const data = page as unknown as PageData;
 
             if (data.id === currentId) currentIndex = i;
-
           });
 
           if (currentIndex >= 0) break;
-
         }
 
-        if (currentIndex < 0) throw new Error("No se pudo ubicar la página abierta.");
+        if (currentIndex < 0)
+          throw new Error(
+            intl.formatMessage({
+              defaultMessage: "Could not find the current page.",
+              description:
+                "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+            }),
+          );
 
         firstIndex = Math.floor(currentIndex / 2) * 2;
 
-        if (firstIndex + 1 >= refs.length) throw new Error("Esta página no tiene contraportada consecutiva.");
+        if (firstIndex + 1 >= refs.length)
+          throw new Error(
+            intl.formatMessage({
+              defaultMessage: "This page has no back cover on the next page.",
+              description:
+                "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+            }),
+          );
 
         for (const index of [firstIndex, firstIndex + 1]) {
-
           const ref = refs[index];
 
-          if (!ref || ref.type !== "absolute") { svgByIndex.set(index, null); continue; }
+          if (!ref || ref.type !== "absolute") {
+            svgByIndex.set(index, null);
+            continue;
+          }
 
           await session.helpers.openPage(ref, async ({ page }) => {
-
             const data = page as unknown as PageData;
 
             svgByIndex.set(index, data.locked ? null : await findSvg(data));
-
           });
-
         }
-
       });
 
       if (firstIndex < 0 || firstIndex + 1 >= pageCount) {
-
-        throw new Error("No se pudo identificar la pareja.");
-
+        throw new Error(
+          intl.formatMessage({
+            defaultMessage: "Could not identify the cover pair.",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          }),
+        );
       }
 
+      fase = intl.formatMessage({
+        defaultMessage: "preparing decorations and the solid background",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
-
-      fase = "preparar figuritas y fondo plano";
-
-      setMessage("Preparando " + palette.label + " para páginas " + (firstIndex + 1) + " y " + (firstIndex + 2) + "...");
+      setMessage(
+        intl.formatMessage(
+          {
+            defaultMessage: "Preparing {v0} for pages {v1} and {v2}...",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          },
+          { v0: palette.label, v1: firstIndex + 1, v2: firstIndex + 2 },
+        ),
+      );
 
       const refsByIndex = new Map<number, string>();
 
       for (const index of [firstIndex, firstIndex + 1]) {
-
         const match = svgByIndex.get(index);
 
-        if (match) refsByIndex.set(index, await getColoredRef(match.info, palette.accent));
-
+        if (match)
+          refsByIndex.set(
+            index,
+            await getColoredRef(match.info, palette.accent),
+          );
       }
 
       let images = 0;
@@ -1642,120 +2070,192 @@ export const App = () => {
 
       const warnings: string[] = [];
 
-      fase = "abrir sesión para editar";
+      fase = intl.formatMessage({
+        defaultMessage: "opening the design for editing",
+        description:
+          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+      });
 
-      setMessage("Aplicando " + palette.label + " a las dos páginas...");
-
-
+      setMessage(
+        intl.formatMessage(
+          {
+            defaultMessage: "Applying {v0} to both pages...",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          },
+          { v0: palette.label },
+        ),
+      );
 
       await openDesign({ type: "all_pages" }, async (session) => {
-
         const refs = session.pageRefs.toArray();
 
         for (const index of [firstIndex, firstIndex + 1]) {
-
           const ref = refs[index];
 
           if (!ref || ref.type !== "absolute") {
-
-            warnings.push("Página " + (index + 1) + " incompatible.");
+            warnings.push(
+              intl.formatMessage(
+                {
+                  defaultMessage: "Page {v0} is not supported.",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: index + 1 },
+              ),
+            );
 
             continue;
-
           }
 
           await session.helpers.openPage(ref, async (result) => {
-
             const page = result.page as unknown as PageData;
 
             if (page.type !== "absolute" || page.locked) {
-
-              warnings.push("Página " + (index + 1) + " bloqueada o incompatible.");
+              warnings.push(
+                intl.formatMessage(
+                  {
+                    defaultMessage: "Page {v0} is locked or not supported.",
+                    description:
+                      "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                  },
+                  { v0: index + 1 },
+                ),
+              );
 
               return;
-
             }
 
             const match = svgByIndex.get(index) ?? null;
 
             {
-
-              fase = "fondo de la página " + (index + 1);
+              fase = intl.formatMessage(
+                {
+                  defaultMessage: "updating the background on page {v0}",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: index + 1 },
+              );
 
               try {
-
-                const removed = applyBackground(page, palette, match?.oldRef ?? null);
+                const removed = applyBackground(
+                  page,
+                  palette,
+                  match?.oldRef ?? null,
+                );
                 backgrounds++;
-                if (removed > 0) warnings.push("Página " + (index + 1) + ": se retiraron " + removed + " fondos PNG anteriores de Lettra Colors.");
-
+                if (removed > 0)
+                  warnings.push(
+                    intl.formatMessage(
+                      {
+                        defaultMessage:
+                          "Page {v0}: removed {v1} previous Lettra Colors PNG backgrounds.",
+                        description:
+                          "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                      },
+                      { v0: index + 1, v1: removed },
+                    ),
+                  );
               } catch (error) {
-
-                warnings.push("Fondo página " + (index + 1) + ": " + String(error));
-
+                warnings.push(
+                  intl.formatMessage(
+                    {
+                      defaultMessage: "Background on page {v0}: {v1}",
+                      description:
+                        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                    },
+                    { v0: index + 1, v1: describeError(error, intl) },
+                  ),
+                );
               }
-
             }
 
             {
-
-              fase = "franja de la página " + (index + 1);
+              fase = intl.formatMessage(
+                {
+                  defaultMessage: "updating the strip on page {v0}",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: index + 1 },
+              );
 
               const strip = getStrip(page);
 
               if (strip) {
-
-                strip.set?.({ type: "solid", color: palette.strip.toLowerCase() });
+                strip.set?.({
+                  type: "solid",
+                  color: palette.strip.toLowerCase(),
+                });
 
                 strips++;
-
               } else {
-
-                warnings.push("Página " + (index + 1) + ": tira no encontrada.");
-
+                warnings.push(
+                  intl.formatMessage(
+                    {
+                      defaultMessage: "Page {v0}: no matching strip found.",
+                      description:
+                        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                    },
+                    { v0: index + 1 },
+                  ),
+                );
               }
-
             }
 
             //* La página 2, 4, 6... es la contraportada.*
 
             if (index % 2 === 1) {
-
               try {
-
                 backNamesColored += recolorBackNames(
-
-                  page, getBackTextColor(palette), newNames, newSurnames
-
+                  page,
+                  getBackTextColor(palette),
+                  newNames,
+                  newSurnames,
                 );
-
               } catch (error) {
-
-                warnings.push("Textos contraportada " + (index + 1) + ": " + String(error));
-
+                warnings.push(
+                  intl.formatMessage(
+                    {
+                      defaultMessage: "Back cover text on page {v0}: {v1}",
+                      description:
+                        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                    },
+                    { v0: index + 1, v1: describeError(error, intl) },
+                  ),
+                );
               }
-
             }
 
             {
-
-              fase = "figuritas de la página " + (index + 1);
+              fase = intl.formatMessage(
+                {
+                  defaultMessage: "updating decorations on page {v0}",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: index + 1 },
+              );
 
               const newSvgRef = refsByIndex.get(index);
 
               if (match && newSvgRef) {
-
                 if (replaceFiguritas(page, match.oldRef, newSvgRef)) images++;
-
               } else {
-
-                warnings.push("Página " + (index + 1) + ": figuritas SVG no detectadas.");
-
+                warnings.push(
+                  intl.formatMessage(
+                    {
+                      defaultMessage: "Page {v0}: no SVG decorations found.",
+                      description:
+                        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                    },
+                    { v0: index + 1 },
+                  ),
+                );
               }
-
             }
-
           });
-
         }
 
         //* LOMO: un solo rectángulo, asociado a la pareja seleccionada.*
@@ -1763,130 +2263,221 @@ export const App = () => {
         //* Si la estructura no coincide, conservamos el resto del diseño.*
 
         try {
-
-          fase = "rectángulo del lomo correspondiente";
+          fase = intl.formatMessage({
+            defaultMessage: "updating the matching spine",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          });
 
           const lomoResult = await recolorLomoInSession(
-
             session as unknown as Parameters<typeof recolorLomoInSession>[0],
 
             firstIndex / 2,
 
             palette.strip,
 
-            getLomoTextColor(palette)
-
+            getLomoTextColor(palette),
+            intl,
           );
 
           if (lomoResult.rectChanged) lomos++;
 
           if (lomoResult.textChanged) lomoTexts++;
 
-          if (lomoResult.warning) warnings.push("Lomo: " + lomoResult.warning);
-
+          if (lomoResult.warning)
+            warnings.push(
+              intl.formatMessage(
+                {
+                  defaultMessage: "Spine: {v0}",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: lomoResult.warning },
+              ),
+            );
         } catch (error) {
-
-          warnings.push("Lomo: " + String(error));
-
+          warnings.push(
+            intl.formatMessage(
+              {
+                defaultMessage: "Spine: {v0}",
+                description:
+                  "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+              },
+              { v0: describeError(error, intl) },
+            ),
+          );
         }
 
+        if (
+          images ||
+          strips ||
+          backgrounds ||
+          backNamesColored ||
+          lomos ||
+          lomoTexts
+        ) {
+          fase = intl.formatMessage({
+            defaultMessage: "saving changes",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          });
 
-
-        if (images || strips || backgrounds || backNamesColored || lomos || lomoTexts) {
-
-          fase = "guardar cambios con session.sync()";
-
-          setMessage("Preparado: " + images + " figuritas, " + strips + " franjas, " + backgrounds + " fondos, " + lomos + " lomo, " + lomoTexts + " texto de lomo y " + backNamesColored + " textos. Guardando...");
+          setMessage(
+            intl.formatMessage(
+              {
+                defaultMessage:
+                  "Saving changes. Decorations: {v0}. Strips: {v1}. Backgrounds: {v2}. Spines: {v3}. Spine text boxes: {v4}. Back cover text boxes: {v5}.",
+                description:
+                  "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+              },
+              {
+                v0: images,
+                v1: strips,
+                v2: backgrounds,
+                v3: lomos,
+                v4: lomoTexts,
+                v5: backNamesColored,
+              },
+            ),
+          );
 
           await session.sync();
-
         }
-
       });
 
       setMessage(
-
-        "¡Listo! 💗 Páginas " + (firstIndex + 1) + " y " + (firstIndex + 2) +
-
-        ": " + images + " figuritas, " + strips + " tiras, " + backgrounds + " fondos, " + lomos + " lomo, " + lomoTexts + " texto de lomo y " + backNamesColored + " textos de contraportada." +
-
-        (warnings.length ? " Avisos: " + warnings.join(" | ") : "")
-
+        intl.formatMessage(
+          {
+            defaultMessage:
+              "Updated pages {v0} and {v1}. Decorations: {v2}. Strips: {v3}. Backgrounds: {v4}. Spines: {v5}. Spine text boxes: {v6}. Back cover text boxes: {v7}.{v8}",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          },
+          {
+            v0: firstIndex + 1,
+            v1: firstIndex + 2,
+            v2: images,
+            v3: strips,
+            v4: backgrounds,
+            v5: lomos,
+            v6: lomoTexts,
+            v7: backNamesColored,
+            v8: warnings.length
+              ? intl.formatMessage(
+                  {
+                    defaultMessage: " Notices: {v0}",
+                    description:
+                      "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                  },
+                  { v0: warnings.join(" | ") },
+                )
+              : "",
+          },
+        ),
       );
-
     } catch (error) {
-
       if (isRateLimit(error)) {
-
-        setMessage("Canva limitó temporalmente las consultas. Vuelve a intentarlo después de un momento.");
-
+        setMessage(
+          intl.formatMessage({
+            defaultMessage:
+              "Canva temporarily limited requests. Wait a moment and try again.",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          }),
+        );
       } else {
-
-        setMessage("Error durante '" + fase + "': " + (error instanceof Error ? error.message : String(error)));
-
+        setMessage(
+          intl.formatMessage(
+            {
+              defaultMessage: "Error while {v0}: {v1}",
+              description:
+                "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+            },
+            { v0: fase, v1: describeError(error, intl) },
+          ),
+        );
       }
-
     } finally {
-
       running.current = false;
 
       setBusy(false);
-
     }
-
   };
-
-
 
   //* Botón independiente: reemplaza los textos coincidentes en TODO el diseño.*
 
   //* El botón de colores sigue trabajando únicamente con la pareja seleccionada.*
 
   const applyTexts = async () => {
-
     if (running.current) return;
-
-
 
     //* Buscar únicamente cuadros completos con estas etiquetas de plantilla.*
 
     //* El grado puede aparecer como GRADO o como el ejemplo 3° A.*
 
     const wanted = [
+      {
+        key: "nombres",
+        label: intl.formatMessage({
+          defaultMessage: "First names",
+          description: "Name of a student details field.",
+        }),
+        originals: ["NOMBRES"],
+        replacement: newNames,
+      },
 
-      { key: "nombres", label: "Nombres", originals: ["NOMBRES"], replacement: newNames },
+      {
+        key: "apellidos",
+        label: intl.formatMessage({
+          defaultMessage: "Last names",
+          description: "Name of a student details field.",
+        }),
+        originals: ["APELLIDOS"],
+        replacement: newSurnames,
+      },
 
-      { key: "apellidos", label: "Apellidos", originals: ["APELLIDOS"], replacement: newSurnames },
-
-      { key: "grado", label: "Grado", originals: ["GRADO", "3° A", "3°A"], replacement: newGrade },
-
+      {
+        key: "grado",
+        label: intl.formatMessage({
+          defaultMessage: "Grade",
+          description: "Name of a student details field.",
+        }),
+        originals: ["GRADO", "3° A", "3°A"],
+        replacement: newGrade,
+      },
     ].filter((item) => item.replacement.trim().length > 0);
 
-
-
     if (wanted.length === 0) {
-
-      setMessage("Escribe por lo menos un dato: nombres, apellidos o grado.");
+      setMessage(
+        intl.formatMessage({
+          defaultMessage:
+            "Enter at least one field: first names, last names, or grade.",
+          description:
+            "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+        }),
+      );
 
       return;
-
     }
-
-
 
     running.current = true;
 
     setBusy(true);
 
-
-
     try {
+      setMessage(
+        intl.formatMessage({
+          defaultMessage: "Looking for matching text on all pages...",
+          description:
+            "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+        }),
+      );
 
-      setMessage("Buscando los textos en TODAS las páginas del diseño...");
-
-
-
-      const changed: Record<string, number> = { nombres: 0, apellidos: 0, grado: 0 };
+      const changed: Record<string, number> = {
+        nombres: 0,
+        apellidos: 0,
+        grado: 0,
+      };
 
       const touchedPages = new Set<number>();
 
@@ -1896,125 +2487,118 @@ export const App = () => {
 
       let totalPages = 0;
 
-
-
       await openDesign({ type: "all_pages" }, async (session) => {
-
         const refs = session.pageRefs.toArray();
 
         totalPages = refs.length;
-
-
 
         //* Solo cambiamos cuadros enteros que contengan una etiqueta original.*
 
         //* No modificamos títulos ni otros textos de las plantillas.*
 
         for (let index = 0; index < refs.length; index++) {
-
           const ref = refs[index];
 
           if (!ref || ref.type !== "absolute") continue;
 
-
-
           await session.helpers.openPage(ref, async ({ page }) => {
-
             const data = page as unknown as PageData;
 
             if (data.type !== "absolute" || data.locked || !data.elements) {
-
-              warnings.push("Página " + (index + 1) + " bloqueada o incompatible.");
+              warnings.push(
+                intl.formatMessage(
+                  {
+                    defaultMessage: "Page {v0} is locked or not supported.",
+                    description:
+                      "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                  },
+                  { v0: index + 1 },
+                ),
+              );
 
               return;
-
             }
 
-
-
             for (const element of data.elements.toArray()) {
-
-              if (element.type !== "text" || element.locked || !element.text) continue;
-
-
+              if (element.type !== "text" || element.locked || !element.text)
+                continue;
 
               const current = element.text.readPlaintext();
 
-              const match = wanted.find(
-
-                (item) => item.originals.some(
-
-                  (original) => normalizedText(current) === normalizedText(original)
-
-                )
-
+              const match = wanted.find((item) =>
+                item.originals.some(
+                  (original) =>
+                    normalizedText(current) === normalizedText(original),
+                ),
               );
 
               if (!match || current === match.replacement.trim()) continue;
 
-
-
               element.text.replaceText(
-
                 { index: 0, length: current.length },
 
-                match.replacement.trim()
-
+                match.replacement.trim(),
               );
 
               changed[match.key] = (changed[match.key] ?? 0) + 1;
 
               touchedPages.add(index + 1);
-
             }
-
           });
-
-
 
           scannedPages++;
 
           if (scannedPages % 10 === 0) {
-
-            setMessage("Revisadas " + scannedPages + " de " + totalPages + " páginas...");
-
+            setMessage(
+              intl.formatMessage(
+                {
+                  defaultMessage: "Checked {v0} of {v1} pages...",
+                  description:
+                    "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                },
+                { v0: scannedPages, v1: totalPages },
+              ),
+            );
           }
-
         }
-
-
 
         if (Object.values(changed).some((count) => count > 0)) {
-
           await session.sync();
-
         }
-
       });
 
-
-
-      const total = Object.values(changed).reduce((sum, count) => sum + count, 0);
+      const total = Object.values(changed).reduce(
+        (sum, count) => sum + count,
+        0,
+      );
 
       if (total === 0) {
-
         setMessage(
-
-          "Revisé " + scannedPages + " páginas y no encontré esos cuadros de texto. " +
-
-          "Busqué NOMBRES, APELLIDOS y GRADO (también 3° A). " +
-
-          "Si ya fueron reemplazados antes, esos textos originales ya no están." +
-
-          (warnings.length ? " Avisos: " + warnings.slice(0, 5).join(" | ") : "")
-
+          intl.formatMessage(
+            {
+              defaultMessage:
+                "Checked {v0} pages and found no matching text boxes. Looked for NOMBRES, APELLIDOS, and GRADO (also 3\u00b0 A). Previously replaced placeholders will no longer match.{v1}",
+              description:
+                "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+            },
+            {
+              v0: scannedPages,
+              v1: warnings.length
+                ? intl.formatMessage(
+                    {
+                      defaultMessage: " Notices: {v0}",
+                      description:
+                        "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                    },
+                    { v0: warnings.slice(0, 5).join(" | ") },
+                  )
+                : "",
+            },
+          ),
         );
 
         return;
-
       }
-
-
 
       const missing = wanted
 
@@ -2022,170 +2606,179 @@ export const App = () => {
 
         .map((item) => item.label);
 
-
-
       setMessage(
-
-        "¡Datos aplicados a todo el diseño! 💗 " +
-
-        total + " cuadros actualizados en " + touchedPages.size + " páginas " +
-
-        "(revisadas " + scannedPages + " de " + totalPages + "). " +
-
-        (changed.nombres ?? 0) + " nombres, " +
-
-        (changed.apellidos ?? 0) + " apellidos y " +
-
-        (changed.grado ?? 0) + " grados." +
-
-        (missing.length ? " Sin coincidencias para: " + missing.join(", ") + "." : "") +
-
-        (warnings.length ? " Avisos: " + warnings.slice(0, 5).join(" | ") : "")
-
+        intl.formatMessage(
+          {
+            defaultMessage:
+              "Student details applied. Text boxes updated: {v0}. Pages changed: {v1}. Pages checked: {v2} of {v3}. First names: {v4}. Last names: {v5}. Grades: {v6}.{v7}{v8}",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          },
+          {
+            v0: total,
+            v1: touchedPages.size,
+            v2: scannedPages,
+            v3: totalPages,
+            v4: changed.nombres ?? 0,
+            v5: changed.apellidos ?? 0,
+            v6: changed.grado ?? 0,
+            v7: missing.length
+              ? intl.formatMessage(
+                  {
+                    defaultMessage: " No matches for: {v0}.",
+                    description:
+                      "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                  },
+                  { v0: missing.join(", ") },
+                )
+              : "",
+            v8: warnings.length
+              ? intl.formatMessage(
+                  {
+                    defaultMessage: " Notices: {v0}",
+                    description:
+                      "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+                  },
+                  { v0: warnings.slice(0, 5).join(" | ") },
+                )
+              : "",
+          },
+        ),
       );
-
     } catch (error) {
-
       setMessage(
-
-        "Error al personalizar: " +
-
-        (error instanceof Error ? error.message : String(error))
-
+        intl.formatMessage(
+          {
+            defaultMessage: "Could not personalize the design: {v0}",
+            description:
+              "Status or error message in Lettra Colors. Preserve Spanish template placeholders NOMBRES, APELLIDOS, GRADO, and 3\u00b0 A.",
+          },
+          { v0: describeError(error, intl) },
+        ),
       );
-
     } finally {
-
       running.current = false;
 
       setBusy(false);
-
     }
-
   };
 
-
-
   return (
+    <Rows spacing="3u">
+      <Rows spacing="1u">
+        <Title size="small">
+          {intl.formatMessage({
+            defaultMessage: "Cover colors",
+            description: "Heading for the cover palette section.",
+          })}
+        </Title>
+        <Text size="small">
+          {intl.formatMessage({
+            defaultMessage: "Open a Lettra cover or back cover.",
+            description:
+              "Instruction for choosing a page in the Canva design before applying a palette.",
+          })}
+        </Text>
+        <FormField
+          label={intl.formatMessage({
+            defaultMessage: "Palette",
+            description: "Label for the cover color palette dropdown.",
+          })}
+          value={selected}
+          control={(props) => (
+            <Select
+              {...props}
+              searchable={{
+                inputPlaceholder: intl.formatMessage({
+                  defaultMessage: "Search by color name",
+                  description:
+                    "Placeholder for searching the existing cover palettes.",
+                }),
+              }}
+              options={[...PALETTES]
+                .sort((a, b) => a.label.localeCompare(b.label, intl.locale))
+                .map((item) => ({ label: item.label, value: item.value }))}
+              onChange={setSelected}
+            />
+          )}
+        />
+        <Button
+          variant="primary"
+          onClick={() => void apply()}
+          disabled={busy}
+          stretch
+        >
+          {intl.formatMessage({
+            defaultMessage: "Apply cover palette",
+            description:
+              "Button that recolors the cover, back cover, and matching spine.",
+          })}
+        </Button>
+      </Rows>
 
-    <Rows spacing="2u">
-
-      <Text>Lettra Colors 🎨</Text>
-
-
-
-      <Text>COLOR DE LA PORTADA Y CONTRAPORTADA</Text>
-
-      <Select
-
-        options={[...PALETTES].sort((a, b) => a.label.localeCompare(b.label, "es")).map((item) => ({ label: item.label, value: item.value }))}
-
-        value={selected}
-
-        onChange={setSelected}
-
-      />
-
-      <Button
-
-        variant="tertiary"
-
-        onClick={() => setShowColorDetails((shown) => !shown)}
-
-        stretch
-
-      >
-
-        {showColorDetails ? "▾ Ocultar detalles del color" : "▸ Ver detalles del color"}
-
-      </Button>
-
-      {showColorDetails && (
-
-        <Rows spacing="1u">
-
-          <Text>Color seleccionado: {palette.label}</Text>
-
-          <Text>Figuritas: {palette.accent}</Text>
-
-          <Text>Tira: {palette.strip}</Text>
-
-          <Text>Fondo: {pageBackgroundColor(palette) + " (plano, nativo de Canva)"}</Text>
-
-          <Text>Textos de contraportada: {getBackTextColor(palette)}</Text>
-
-          <Text>Lomo: letra más oscura que la franja; Negra para Negro y plomita para Blanco. Conserva el borde blanco de Canva.</Text>
-
-          <Text>Color interior del texto del lomo: {getLomoTextColor(palette)}</Text>
-
-          <Text>Fondo sólido aplicado directamente a la página de Canva (sin PNG ni degradado).</Text>
-
-        </Rows>
-
-      )}
-
-      <Button variant="primary" onClick={() => void apply()} disabled={busy} stretch>
-
-        Aplicar paleta a mi portada y contraportada
-
-      </Button>
-
-
-
-      <Text>DATOS DEL ALUMNO — TODAS LAS PÁGINAS</Text>
-
-      <Text>Nombres</Text>
-
-      <TextInput value={newNames} onChange={setNewNames} placeholder="Ej. Valentina Sofía" />
-
-      <Text>Apellidos</Text>
-
-      <TextInput value={newSurnames} onChange={setNewSurnames} placeholder="Ej. López García" />
-
-      <Text>Grado completo</Text>
-
-      <TextInput value={newGrade} onChange={setNewGrade} placeholder="Ej. 5 años o 3° A" />
-
-      <Button variant="secondary" onClick={() => void applyTexts()} disabled={busy} stretch>
-
-        Aplicar datos en TODO el diseño
-
-      </Button>
-
-      <Button
-
-        variant="tertiary"
-
-        onClick={() => setShowDataHelp((shown) => !shown)}
-
-        stretch
-
-      >
-
-        {showDataHelp ? "▾ Ocultar información de los datos" : "▸ Ver información de los datos"}
-
-      </Button>
-
-      {showDataHelp && (
-
-        <Rows spacing="1u">
-
-          <Text>Puedes dejar en blanco lo que no quieras modificar.</Text>
-
-          <Text>El botón de datos modifica las coincidencias en TODAS las páginas del diseño abierto.</Text>
-
-          <Text>Busca automáticamente NOMBRES, APELLIDOS y GRADO (también 3° A). No crea otros cuadros.</Text>
-
-          <Text>El botón de colores trabaja con la pareja seleccionada, su rectángulo del lomo y el color interior del texto de ese lomo.</Text>
-
-        </Rows>
-
-      )}
+      <Rows spacing="1u">
+        <Title size="small">
+          {intl.formatMessage({
+            defaultMessage: "Student details",
+            description: "Heading for the student details section.",
+          })}
+        </Title>
+        <FormField
+          label={intl.formatMessage({
+            defaultMessage: "First names",
+            description: "Label for the student's first names.",
+          })}
+          value={newNames}
+          control={(props) => <TextInput {...props} onChange={setNewNames} />}
+        />
+        <FormField
+          label={intl.formatMessage({
+            defaultMessage: "Last names",
+            description: "Label for the student's last names.",
+          })}
+          value={newSurnames}
+          control={(props) => (
+            <TextInput {...props} onChange={setNewSurnames} />
+          )}
+        />
+        <FormField
+          label={intl.formatMessage({
+            defaultMessage: "Grade",
+            description: "Label for the student's grade and class.",
+          })}
+          value={newGrade}
+          control={(props) => (
+            <TextInput
+              {...props}
+              onChange={setNewGrade}
+              placeholder={intl.formatMessage({
+                defaultMessage: "e.g. Grade 3, Class A",
+                description: "Example of a grade and class in an empty input.",
+              })}
+            />
+          )}
+        />
+        <Text size="small">
+          {intl.formatMessage({
+            defaultMessage: "Leave any fields you do not want to change blank.",
+            description: "Hint for the optional student details fields.",
+          })}
+        </Text>
+        <Button
+          variant="secondary"
+          onClick={() => void applyTexts()}
+          disabled={busy}
+          stretch
+        >
+          {intl.formatMessage({
+            defaultMessage: "Apply details to all pages",
+            description:
+              "Button that applies the entered details across the current design.",
+          })}
+        </Button>
+      </Rows>
 
       {message && <Text>{message}</Text>}
-
     </Rows>
-
   );
-
 };
